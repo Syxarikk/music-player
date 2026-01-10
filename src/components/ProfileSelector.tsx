@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react'
-import { User, Plus, Check, X, Trash2 } from 'lucide-react'
+import { Users, Plus, Check, X, Trash2, ChevronDown } from 'lucide-react'
 import { useStore, PROFILE_COLORS, PROFILE_AVATARS } from '../store/useStore'
 import './ProfileSelector.css'
 
@@ -57,9 +57,9 @@ export default function ProfileSelector() {
     return (
       <div className="profile-welcome">
         <div className="profile-welcome-content">
-          <User size={48} />
+          <Users size={56} strokeWidth={1.5} />
           <h2>Добро пожаловать!</h2>
-          <p>Создайте профиль, чтобы начать</p>
+          <p>Создайте профиль для начала работы</p>
 
           <div className="profile-create-form">
             <input
@@ -124,6 +124,7 @@ export default function ProfileSelector() {
       >
         <span className="profile-avatar">{currentProfile?.avatar}</span>
         <span className="profile-name">{currentProfile?.name}</span>
+        <ChevronDown size={16} className={`profile-chevron ${isOpen ? 'open' : ''}`} />
       </button>
 
       {isOpen && (

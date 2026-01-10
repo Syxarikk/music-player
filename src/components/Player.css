@@ -223,8 +223,13 @@
   transition: width 0.1s linear;
 }
 
-.player-progress:hover .player-progress-bar {
+.player-progress:hover .player-progress-bar,
+.player-progress.dragging .player-progress-bar {
   background: var(--accent-primary);
+}
+
+.player-progress.dragging .player-progress-bar {
+  transition: none;
 }
 
 .player-progress-handle {
@@ -239,6 +244,15 @@
   opacity: 0;
   transition: all var(--transition-fast);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.player-progress.dragging {
+  height: 6px;
+}
+
+.player-progress.dragging .player-progress-handle {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
 }
 
 /* Extra controls */

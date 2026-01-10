@@ -42,6 +42,7 @@ protocol.registerSchemesAsPrivileged([
 /**
  * Register custom protocol handler
  * This replaces webSecurity: false with a secure alternative
+ * Supports Range requests for audio seeking
  */
 function registerLocalAudioProtocol() {
   protocol.handle(PROTOCOL_NAME, async (request) => {
@@ -70,15 +71,70 @@ function registerLocalAudioProtocol() {
         return new Response('Forbidden: Invalid file type', { status: 403 })
       }
 
-      // Check if file exists
+      // Get file stats
+      let stat
       try {
-        await fs.access(filePath)
+        stat = await fs.stat(filePath)
       } catch {
         return new Response('Not Found', { status: 404 })
       }
 
-      // Use net.fetch to load the file securely
-      return net.fetch(pathToFileURL(filePath).toString())
+      const fileSize = stat.size
+      const mimeTypes: Record<string, string> = {
+        '.mp3': 'audio/mpeg',
+        '.wav': 'audio/wav',
+        '.flac': 'audio/flac',
+        '.ogg': 'audio/ogg',
+        '.m4a': 'audio/mp4',
+        '.aac': 'audio/aac',
+        '.webm': 'audio/webm',
+      }
+      const contentType = mimeTypes[ext] || 'audio/mpeg'
+
+      // Check for Range header (needed for seeking)
+      const rangeHeader = request.headers.get('Range')
+
+      if (rangeHeader) {
+        // Parse Range header: "bytes=start-end"
+        const match = rangeHeader.match(/bytes=(\d*)-(\d*)/)
+        if (match) {
+          const start = match[1] ? parseInt(match[1], 10) : 0
+          const end = match[2] ? parseInt(match[2], 10) : fileSize - 1
+          const chunkSize = end - start + 1
+
+          // Read the requested chunk
+          const fileHandle = await fs.open(filePath, 'r')
+          const buffer = Buffer.alloc(chunkSize)
+          await fileHandle.read(buffer, 0, chunkSize, start)
+          await fileHandle.close()
+
+          // Return 206 Partial Content
+          return new Response(buffer, {
+            status: 206,
+            headers: {
+              'Content-Type': contentType,
+              'Content-Length': chunkSize.toString(),
+              'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+              'Accept-Ranges': 'bytes',
+            },
+          })
+        }
+      }
+
+      // No Range header - return full file
+      const fileHandle = await fs.open(filePath, 'r')
+      const buffer = Buffer.alloc(fileSize)
+      await fileHandle.read(buffer, 0, fileSize, 0)
+      await fileHandle.close()
+
+      return new Response(buffer, {
+        status: 200,
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': fileSize.toString(),
+          'Accept-Ranges': 'bytes',
+        },
+      })
     } catch (error) {
       console.error('Protocol error:', error)
       return new Response('Internal Server Error', { status: 500 })

@@ -116,12 +116,15 @@ export default function Player() {
   const isCrossfading = useRef(false)
   const isPlayingRef = useRef(isPlaying)
   const loadingTrackIdRef = useRef<string | null>(null)
+  const isSeekingRef = useRef(false)
   const actualVolume = isMuted ? 0 : volume
 
   const [isLoadingAudio, setIsLoadingAudio] = useState(false)
   const [audioError, setAudioError] = useState<string | null>(null)
   const [showQueue, setShowQueue] = useState(false)
   const [isAudioReady, setIsAudioReady] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragTime, setDragTime] = useState(0)
 
   // Handle favorite toggle - add track to library first if needed
   const handleToggleFavorite = useCallback(() => {
@@ -169,6 +172,8 @@ export default function Player() {
 
   useEffect(() => {
     if (!currentTrack) return
+
+    console.log('[TRACK_LOAD] Effect triggered for track:', currentTrack.id, currentTrack.title)
 
     // Store track ID to check if it changed during async loading
     const trackId = currentTrack.id
@@ -238,6 +243,7 @@ export default function Player() {
           format: format,
           volume: actualVolume,
           onload: () => {
+            console.log('[HOWL] onload triggered')
             // Final check before playing
             if (loadingTrackIdRef.current !== trackId) {
               console.log('Track changed after Howl loaded, unloading')
@@ -248,10 +254,18 @@ export default function Player() {
             setIsLoadingAudio(false)
             setIsAudioReady(true)
             if (isPlayingRef.current && !newSound.playing()) {
+              console.log('[HOWL] Starting playback from onload')
               newSound.play()
             }
           },
+          onplay: () => {
+            console.log('[HOWL] onplay triggered, seek position:', newSound.seek())
+          },
+          onseek: () => {
+            console.log('[HOWL] onseek triggered, new position:', newSound.seek())
+          },
           onend: () => {
+            console.log('[HOWL] onend triggered')
             if (!isCrossfading.current) {
               nextTrack()
             }
@@ -286,8 +300,13 @@ export default function Player() {
 
   useEffect(() => {
     if (!soundRef.current) return
+    console.log('[PLAY_EFFECT] isPlaying changed:', isPlaying, 'currently playing:', soundRef.current.playing())
     if (isPlaying) {
-      soundRef.current.play()
+      // Only call play if not already playing to avoid restart
+      if (!soundRef.current.playing()) {
+        console.log('[PLAY_EFFECT] Calling play()')
+        soundRef.current.play()
+      }
     } else {
       soundRef.current.pause()
     }
@@ -302,7 +321,7 @@ export default function Player() {
     if (!soundRef.current || !isPlaying || !isAudioReady) return
 
     const interval = setInterval(() => {
-      if (!soundRef.current) return
+      if (!soundRef.current || isSeekingRef.current) return
 
       const current = soundRef.current.seek() as number
       const dur = soundRef.current.duration()
@@ -394,17 +413,110 @@ export default function Player() {
     nextTrack,
   ])
 
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const calculateTimeFromEvent = useCallback((e: MouseEvent | React.MouseEvent) => {
+    if (!progressRef.current || !duration) return 0
+    const rect = progressRef.current.getBoundingClientRect()
+    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    return percent * duration
+  }, [duration])
+
+  const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressRef.current || !soundRef.current) return
 
-    const rect = progressRef.current.getBoundingClientRect()
-    const percent = (e.clientX - rect.left) / rect.width
-    const newTime = percent * duration
-
-    soundRef.current.seek(newTime)
-    setCurrentTime(newTime)
-    isCrossfading.current = false
+    e.preventDefault()
+    isSeekingRef.current = true
+    const newTime = calculateTimeFromEvent(e)
+    setIsDragging(true)
+    setDragTime(newTime)
   }
+
+  const handleProgressTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!progressRef.current || !soundRef.current) return
+    if (e.touches.length > 0) {
+      isSeekingRef.current = true
+      const touch = e.touches[0]
+      const newTime = calculateTimeFromEvent(touch as unknown as React.MouseEvent)
+      setIsDragging(true)
+      setDragTime(newTime)
+    }
+  }
+
+  const performSeek = useCallback((newTime: number) => {
+    if (!soundRef.current) return
+
+    const clampedTime = Math.max(0, Math.min(newTime, duration || newTime))
+
+    // Access the underlying HTML5 audio element directly
+    // Howler stores it in _sounds[0]._node when html5: true
+    const sound = soundRef.current as any
+    const audioNode = sound._sounds?.[0]?._node as HTMLAudioElement | undefined
+
+    console.log('[SEEK v2] Seeking to:', clampedTime, 'audioNode exists:', !!audioNode)
+
+    if (audioNode) {
+      // Seek directly on HTML5 audio element - this works reliably
+      console.log('[SEEK v2] Before: audioNode.currentTime =', audioNode.currentTime)
+      audioNode.currentTime = clampedTime
+      console.log('[SEEK v2] After: audioNode.currentTime =', audioNode.currentTime)
+      setCurrentTime(clampedTime)
+      isCrossfading.current = false
+    } else {
+      // Fallback to Howler seek
+      console.log('[SEEK v2] Using Howler fallback')
+      soundRef.current.seek(clampedTime)
+      setCurrentTime(clampedTime)
+      isCrossfading.current = false
+    }
+
+    // Allow time updates again after a short delay
+    setTimeout(() => {
+      isSeekingRef.current = false
+    }, 50)
+  }, [setCurrentTime, duration])
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newTime = calculateTimeFromEvent(e)
+      setDragTime(newTime)
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        const touch = e.touches[0]
+        const newTime = calculateTimeFromEvent(touch as unknown as MouseEvent)
+        setDragTime(newTime)
+      }
+    }
+
+    const handleMouseUp = (e: MouseEvent) => {
+      const newTime = calculateTimeFromEvent(e)
+      performSeek(newTime)
+      setIsDragging(false)
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0]
+        const newTime = calculateTimeFromEvent(touch as unknown as MouseEvent)
+        performSeek(newTime)
+      }
+      setIsDragging(false)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('touchmove', handleTouchMove)
+    document.addEventListener('touchend', handleTouchEnd)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [isDragging, calculateTimeFromEvent, performSeek])
 
   const handleRepeatClick = () => {
     const currentIndex = REPEAT_MODES.indexOf(repeatMode)
@@ -494,15 +606,16 @@ export default function Player() {
         </div>
 
         <div className="player-progress-container">
-          <span className="player-time">{formatTime(currentTime)}</span>
+          <span className="player-time">{formatTime(isDragging ? dragTime : currentTime)}</span>
           <div
-            className="player-progress"
+            className={`player-progress ${isDragging ? 'dragging' : ''}`}
             ref={progressRef}
-            onClick={handleProgressClick}
+            onMouseDown={handleProgressMouseDown}
+            onTouchStart={handleProgressTouchStart}
           >
             <div
               className="player-progress-bar"
-              style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+              style={{ width: `${duration ? ((isDragging ? dragTime : currentTime) / duration) * 100 : 0}%` }}
             >
               <div className="player-progress-handle" />
             </div>

@@ -84,7 +84,7 @@ export default function PlaylistPage() {
             <input
               type="text"
               defaultValue={playlist.name}
-              className="playlist-name-edit"
+              className="playlist-title-edit"
               autoFocus
               onBlur={(e) => {
                 handleNameChange(e.target.value)
@@ -99,7 +99,7 @@ export default function PlaylistPage() {
             />
           ) : (
             <h1
-              className="playlist-name"
+              className="playlist-title"
               onClick={() => setIsEditing(true)}
             >
               {playlist.name}
