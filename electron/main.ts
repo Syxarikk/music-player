@@ -288,6 +288,14 @@ ipcMain.handle('get-audio-url', (_, filePath: string) => {
   return `${PROTOCOL_NAME}://audio/${encodedPath}`
 })
 
+/**
+ * Convert local file path to protocol URL (for YouTube cache)
+ */
+function filePathToProtocolUrl(filePath: string): string {
+  const encodedPath = encodeURIComponent(filePath.replace(/\\/g, '/'))
+  return `${PROTOCOL_NAME}://audio/${encodedPath}`
+}
+
 // Initialize yt-dlp with the binary path
 // Use app.isPackaged for more reliable detection
 const isPackaged = app.isPackaged
@@ -325,7 +333,7 @@ ipcMain.handle('get-youtube-audio-url', async (_, videoId: string) => {
     try {
       await fs.access(cached)
       console.log('Using cached audio:', cached)
-      return pathToFileURL(cached).toString()
+      return filePathToProtocolUrl(cached)
     } catch {
       // Not cached
     }
@@ -391,7 +399,7 @@ ipcMain.handle('get-youtube-audio-url', async (_, videoId: string) => {
   for (const format of formats) {
     const output = format.includes('webm') ? cacheFileAlt : cacheFile
     if (await tryDownload(format, output)) {
-      return pathToFileURL(output).toString()
+      return filePathToProtocolUrl(output)
     }
   }
 
@@ -400,7 +408,7 @@ ipcMain.handle('get-youtube-audio-url', async (_, videoId: string) => {
     for (const format of formats) {
       const output = format.includes('webm') ? cacheFileAlt : cacheFile
       if (await tryDownload(format, output, browser)) {
-        return pathToFileURL(output).toString()
+        return filePathToProtocolUrl(output)
       }
     }
   }
