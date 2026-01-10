@@ -1,0 +1,168 @@
+/**
+ * Track Context Menu Styles
+ */
+
+.track-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 220px;
+  max-width: 280px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  animation: contextMenuIn 0.15s ease;
+}
+
+@keyframes contextMenuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-header {
+  padding: 12px;
+  background: var(--bg-tertiary);
+}
+
+.context-menu-track {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.context-menu-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.context-menu-cover-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-highlight);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.context-menu-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.context-menu-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.context-menu-artist {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
+}
+
+.context-menu-options {
+  padding: 6px;
+}
+
+.context-menu-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-align: left;
+  transition: all var(--transition-fast);
+}
+
+.context-menu-option:hover:not(:disabled) {
+  background: var(--bg-highlight);
+}
+
+.context-menu-option:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.context-menu-option svg {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.context-menu-option.active {
+  color: #ec4899;
+}
+
+.context-menu-option.active svg {
+  color: #ec4899;
+}
+
+.context-menu-option.danger {
+  color: var(--error);
+}
+
+.context-menu-option.danger svg {
+  color: var(--error);
+}
+
+.context-menu-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.context-menu-option.new-playlist {
+  color: var(--accent-primary);
+}
+
+.context-menu-option.new-playlist svg {
+  color: var(--accent-primary);
+}
+
+.in-playlist-badge {
+  margin-left: auto;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: var(--bg-highlight);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+}
+
+.context-menu-submenu {
+  position: relative;
+}
+
+.context-submenu {
+  padding: 4px 0 4px 24px;
+  border-left: 2px solid var(--bg-highlight);
+  margin-left: 12px;
+}
+
+.context-submenu .context-menu-option {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}

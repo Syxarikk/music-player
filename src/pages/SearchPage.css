@@ -1,0 +1,296 @@
+.search-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.search-header {
+  margin-bottom: 32px;
+}
+
+/* Tabs */
+.search-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.search-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  transition: all var(--transition-fast);
+}
+
+.search-tab:hover {
+  background: var(--bg-highlight);
+  color: var(--text-primary);
+}
+
+.search-tab.active {
+  background: var(--accent-primary);
+  color: white;
+}
+
+.search-tab.active:hover {
+  background: var(--accent-secondary);
+}
+
+/* Input */
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 600px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-input {
+  flex: 1;
+  padding: 14px 48px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  font-size: 1rem;
+  transition: all var(--transition-fast);
+}
+
+.search-input:focus {
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 2px var(--accent-primary);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-clear {
+  position: absolute;
+  right: 100px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px;
+  color: var(--text-muted);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+}
+
+.search-clear:hover {
+  color: var(--text-primary);
+  background: var(--bg-highlight);
+}
+
+.search-button {
+  padding: 14px 24px;
+  background: var(--accent-primary);
+  color: white;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.search-button:hover:not(:disabled) {
+  background: var(--accent-secondary);
+}
+
+.search-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Results */
+.search-results {
+  flex: 1;
+}
+
+.search-results-count {
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+/* Loading & Error states */
+.search-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 16px;
+  color: var(--text-secondary);
+}
+
+.search-error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  color: #ef4444;
+  margin-bottom: 20px;
+}
+
+/* Placeholder */
+.search-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.search-placeholder h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 24px 0 8px;
+  color: var(--text-secondary);
+}
+
+.search-placeholder p {
+  max-width: 400px;
+}
+
+.youtube-icon {
+  color: #ff0000;
+}
+
+/* YouTube Results */
+.youtube-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.youtube-result-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.youtube-result-item:hover {
+  background: var(--bg-highlight);
+}
+
+.youtube-result-item.active {
+  background: var(--bg-elevated);
+}
+
+.youtube-result-cover {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--bg-tertiary);
+}
+
+.youtube-result-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.youtube-result-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
+
+.youtube-result-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.youtube-result-item:hover .youtube-result-play {
+  opacity: 1;
+}
+
+.youtube-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.youtube-result-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.youtube-result-artist {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.youtube-result-duration {
+  color: var(--text-muted);
+}
+
+.youtube-result-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.youtube-result-action {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.youtube-result-action:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

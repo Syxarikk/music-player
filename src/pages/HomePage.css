@@ -1,0 +1,25 @@
+.home-page .section-icon {
+  color: var(--accent-primary);
+  margin-right: 8px;
+}
+
+.home-page .section-title {
+  display: flex;
+  align-items: center;
+}
+
+.section-hero {
+  margin-bottom: 8px;
+}
+
+.smart-playlists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .smart-playlists-grid {
+    grid-template-columns: 1fr;
+  }
+}

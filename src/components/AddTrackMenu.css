@@ -1,0 +1,339 @@
+/**
+ * AddTrackMenu Styles
+ */
+
+.add-track-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.add-track-menu {
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 360px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.add-track-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.add-track-menu-track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.add-track-menu-cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.add-track-menu-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.add-track-menu-title {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.add-track-menu-artist {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.add-track-menu-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.add-track-menu-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Options */
+.add-track-menu-options {
+  padding: 8px;
+}
+
+.add-track-menu-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 15px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.add-track-menu-option:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.add-track-menu-option:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.add-track-menu-option.disabled {
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
+.add-track-menu-option.disabled svg {
+  color: var(--accent-success);
+}
+
+.add-track-menu-option.active {
+  color: var(--accent-error);
+}
+
+.add-track-menu-option.active svg {
+  color: var(--accent-error);
+}
+
+.add-track-menu-option svg {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.add-track-menu-option.new-playlist {
+  color: var(--accent-primary);
+}
+
+.add-track-menu-option.new-playlist svg {
+  color: var(--accent-primary);
+}
+
+/* Playlists view */
+.add-track-menu-playlists {
+  padding: 8px;
+}
+
+.add-track-menu-back {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  transition: all 0.2s;
+}
+
+.add-track-menu-back:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Create playlist */
+.add-track-menu-create {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.add-track-menu-input {
+  flex: 1;
+  padding: 12px 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.add-track-menu-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.add-track-menu-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.add-track-menu-create-btn {
+  padding: 12px 18px;
+  background: var(--accent-primary);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.add-track-menu-create-btn:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+}
+
+.add-track-menu-create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Playlist list */
+.add-track-menu-playlist-list {
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.add-track-menu-playlist-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.add-track-menu-playlist-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.add-track-menu-playlist-item:disabled {
+  cursor: default;
+}
+
+.add-track-menu-playlist-item svg {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.add-track-menu-playlist-item .playlist-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.add-track-menu-playlist-item.in-playlist {
+  color: var(--text-tertiary);
+}
+
+.add-track-menu-playlist-item .check-icon {
+  color: var(--accent-success);
+}
+
+.add-track-menu-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+/* Mobile styles */
+@media (max-width: 480px) {
+  .add-track-menu {
+    width: 100%;
+    max-width: none;
+    border-radius: 20px 20px 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    animation: slideUpMobile 0.3s ease;
+  }
+
+  @keyframes slideUpMobile {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  .add-track-menu-overlay {
+    align-items: flex-end;
+  }
+
+  .add-track-menu-header {
+    padding: 20px 16px;
+  }
+
+  .add-track-menu-options,
+  .add-track-menu-playlists {
+    padding: 8px 8px 24px;
+  }
+
+  /* Safe area for iOS */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .add-track-menu-options,
+    .add-track-menu-playlists {
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    }
+  }
+}

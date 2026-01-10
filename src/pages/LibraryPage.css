@@ -1,0 +1,58 @@
+.library-page .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.library-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.library-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 16px;
+}
+
+.library-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.library-tab:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.library-tab.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.tab-count {
+  background: var(--bg-highlight);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  gap: 16px;
+  color: var(--text-secondary);
+}

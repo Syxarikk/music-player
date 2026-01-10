@@ -1,0 +1,204 @@
+/**
+ * Mobile-specific styles for Family Player
+ * Optimized for iOS Safari and Android Chrome
+ */
+
+/* Safe area insets for notched devices */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+}
+
+/* Mobile layout - hide sidebar, show bottom nav */
+@media (max-width: 768px) {
+  /* Hide desktop sidebar */
+  .sidebar {
+    display: none !important;
+  }
+
+  /* Hide window controls on mobile */
+  .window-controls {
+    display: none !important;
+  }
+
+  /* Full width main content */
+  .main-content,
+  .main-view {
+    margin-left: 0 !important;
+    padding-bottom: calc(200px + var(--safe-area-inset-bottom)) !important;
+  }
+
+  .app-content {
+    margin-left: 0 !important;
+  }
+
+  /* Web mode - no title bar padding */
+  .app.web .app-content {
+    padding-top: 0 !important;
+  }
+
+  /* Mobile player - fixed above bottom nav */
+  .player {
+    position: fixed !important;
+    bottom: calc(60px + var(--safe-area-inset-bottom));
+    left: 0;
+    right: 0;
+    padding: 12px 16px !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    z-index: 1000;
+    background: linear-gradient(180deg, rgba(18, 18, 18, 0.98), rgba(10, 10, 10, 1)) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .player-empty {
+    height: auto !important;
+    min-height: 80px;
+  }
+
+  /* Track info row */
+  .player-track {
+    width: 100%;
+    flex: none;
+  }
+
+  .player-cover {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  .player-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .player-title {
+    font-size: 14px !important;
+  }
+
+  .player-artist {
+    font-size: 12px !important;
+  }
+
+  /* Controls row */
+  .player-controls {
+    width: 100%;
+    flex: none;
+  }
+
+  .player-buttons {
+    gap: 8px !important;
+  }
+
+  /* Larger touch targets for buttons */
+  .player-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .player-btn-main {
+    width: 56px !important;
+    height: 56px !important;
+  }
+
+  /* Progress bar - larger for touch */
+  .player-progress {
+    height: 8px !important;
+  }
+
+  .player-progress-bar {
+    height: 8px !important;
+  }
+
+  .player-progress-handle {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* Volume controls - hide on mobile (use system volume) */
+  .player-volume {
+    display: none !important;
+  }
+
+  .player-extra {
+    display: none !important;
+  }
+
+  /* Search page */
+  .search-page {
+    padding: 16px !important;
+    padding-top: calc(16px + var(--safe-area-inset-top)) !important;
+  }
+
+  .search-input-wrapper {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-input {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+
+  /* Track list */
+  .track-item {
+    padding: 12px !important;
+  }
+
+  .track-cover {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+}
+
+/* Tablet layout */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sidebar {
+    width: 200px !important;
+  }
+
+  .main-content {
+    margin-left: 200px !important;
+  }
+}
+
+/* Hide mobile nav on desktop */
+@media (min-width: 769px) {
+  .mobile-nav {
+    display: none !important;
+  }
+}
+
+/* Touch-friendly scrolling */
+@media (max-width: 768px) {
+  .track-list,
+  .playlist-grid,
+  .search-results {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+}
+
+/* Prevent text selection on interactive elements */
+.player-btn,
+.track-item,
+.mobile-nav-item {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Active states for touch */
+.player-btn:active {
+  transform: scale(0.95);
+}
+
+.track-item:active {
+  background: rgba(255, 255, 255, 0.1);
+}

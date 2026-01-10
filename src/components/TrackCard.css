@@ -1,0 +1,95 @@
+.track-card {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.track-card:hover {
+  background: var(--bg-elevated);
+  transform: translateY(-4px);
+}
+
+.track-card:hover .track-card-play {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.track-card.active {
+  background: var(--bg-elevated);
+}
+
+.track-card.active .track-card-play {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.track-card-cover {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.track-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.track-card-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  background: var(--accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.track-card-play {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 48px;
+  height: 48px;
+  background: var(--accent-primary);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all var(--transition-normal);
+  box-shadow: 0 8px 16px rgba(139, 92, 246, 0.4);
+}
+
+.track-card-play:hover {
+  transform: scale(1.05) translateY(0);
+  background: var(--accent-secondary);
+}
+
+.track-card-info {
+  min-width: 0;
+}
+
+.track-card-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.track-card-artist {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

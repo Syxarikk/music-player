@@ -1,0 +1,52 @@
+/**
+ * Mobile Navigation Styles
+ */
+
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(10, 10, 10, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom, 0px));
+    z-index: 1001;
+  }
+
+  .mobile-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 4px;
+    color: rgba(255, 255, 255, 0.5);
+    text-decoration: none;
+    font-size: 10px;
+    font-weight: 500;
+    transition: color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-nav-item:active {
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .mobile-nav-item.active {
+    color: #8b5cf6;
+  }
+
+  .mobile-nav-item svg {
+    width: 22px;
+    height: 22px;
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "name": "family-player",
+  "version": "1.0.0",
+  "description": "Лучший бесплатный музыкальный плеер для семьи",
+  "main": "dist/electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "electron:compile": "tsc -p electron/tsconfig.json",
+    "electron:dev": "npm run electron:compile && concurrently \"vite\" \"wait-on http://localhost:5173 && set NODE_ENV=development && electron .\"",
+    "electron:build": "npm run build && npm run electron:compile && electron-builder",
+    "preview": "vite preview",
+    "ios:init": "npx cap add ios",
+    "ios:sync": "npm run build && npx cap sync ios",
+    "ios:open": "npx cap open ios",
+    "ios:run": "npm run build && npx cap run ios",
+    "cap:sync": "npm run build && npx cap sync"
+  },
+  "keywords": [
+    "music",
+    "player",
+    "family",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "framer-motion": "^10.16.16",
+    "howler": "^2.2.4",
+    "lucide-react": "^0.294.0",
+    "music-metadata": "^7.14.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "yt-dlp-wrap": "^2.3.12",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/howler": "^2.2.11",
+    "@types/node": "^20.10.5",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.familyplayer.app",
+    "productName": "Family Player",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": ".",
+        "filter": ["yt-dlp.exe"]
+      }
+    ],
+    "asar": false,
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "public/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "public/icon.icns"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
