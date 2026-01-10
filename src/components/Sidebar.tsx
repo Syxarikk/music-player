@@ -18,7 +18,7 @@ import ProfileSelector from './ProfileSelector'
 import './Sidebar.css'
 
 export default function Sidebar() {
-  const { getPlaylists, createPlaylist, getTracks, getFavorites, profiles } = useStore()
+  const { getPlaylists, createPlaylist, getTracks, getFavorites } = useStore()
 
   const playlists = getPlaylists()
   const tracks = getTracks()
@@ -27,11 +27,6 @@ export default function Sidebar() {
   const handleCreatePlaylist = () => {
     const name = `Плейлист ${playlists.length + 1}`
     createPlaylist(name)
-  }
-
-  // Show profile welcome screen if no profiles
-  if (profiles.length === 0) {
-    return <ProfileSelector />
   }
 
   return (

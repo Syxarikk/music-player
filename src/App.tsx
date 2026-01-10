@@ -5,10 +5,12 @@
 import { lazy, Suspense } from 'react'
 import { HashRouter, BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { isElectron } from './services/apiClient'
+import { useStore } from './store/useStore'
 import TitleBar from './components/TitleBar'
 import Sidebar from './components/Sidebar'
 import Player from './components/Player'
 import MobileNav from './components/MobileNav'
+import ProfileSelector from './components/ProfileSelector'
 import './styles/App.css'
 
 // Use HashRouter for Electron (file:// protocol doesn't support History API)
@@ -30,6 +32,18 @@ function PageLoader() {
 }
 
 function App() {
+  const { profiles } = useStore()
+
+  // Show profile creation screen if no profiles exist
+  if (profiles.length === 0) {
+    return (
+      <div className={`app ${isElectron ? 'electron' : 'web'}`}>
+        {isElectron && <TitleBar />}
+        <ProfileSelector />
+      </div>
+    )
+  }
+
   return (
     <Router>
       <div className={`app ${isElectron ? 'electron' : 'web'}`}>
