@@ -16,9 +16,9 @@ import { createMediaServer } from './server'
 let mainWindow: BrowserWindow | null = null
 
 // Check if running in development mode
-// In dev: NODE_ENV=development OR vite dev server is expected to run
-// In prod: app is packaged OR NODE_ENV=production
-const isDev = process.env.NODE_ENV === 'development'
+// In dev: not packaged and vite server should be running
+// In prod: app is packaged
+const isDev = !app.isPackaged
 const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac', '.webm']
 
 // Custom protocol for secure local file access
