@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react'
-import { FolderOpen, Trash2, Volume2, Music, RefreshCw } from 'lucide-react'
+import { FolderOpen, Trash2, Volume2, Music, RefreshCw, Youtube, Server, Monitor } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { generateId } from '../utils/id'
 import { isElectron } from '../services/apiClient'
@@ -185,8 +185,80 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <section className="settings-section">
+        <div className="settings-section-header">
+          <Youtube size={24} />
+          <div>
+            <h2>YouTube</h2>
+            <p>Настройки воспроизведения с YouTube</p>
+          </div>
+        </div>
+
+        <div className="settings-content">
+          <div className="setting-radio-group">
+            <label className="setting-radio-title">Режим загрузки</label>
+
+            <label className="setting-radio">
+              <input
+                type="radio"
+                name="youtubeMode"
+                value="server"
+                checked={audioSettings.youtubeMode === 'server'}
+                onChange={() => setAudioSettings({ youtubeMode: 'server' })}
+              />
+              <div className="setting-radio-content">
+                <Server size={20} />
+                <div>
+                  <span className="setting-radio-label">Сервер</span>
+                  <span className="setting-radio-desc">
+                    Загрузка через удалённый сервер (рекомендуется)
+                  </span>
+                </div>
+              </div>
+            </label>
+
+            {isElectron && (
+              <label className="setting-radio">
+                <input
+                  type="radio"
+                  name="youtubeMode"
+                  value="local"
+                  checked={audioSettings.youtubeMode === 'local'}
+                  onChange={() => setAudioSettings({ youtubeMode: 'local' })}
+                />
+                <div className="setting-radio-content">
+                  <Monitor size={20} />
+                  <div>
+                    <span className="setting-radio-label">Локально</span>
+                    <span className="setting-radio-desc">
+                      Загрузка через yt-dlp на этом компьютере
+                    </span>
+                  </div>
+                </div>
+              </label>
+            )}
+          </div>
+
+          {audioSettings.youtubeMode === 'server' && (
+            <div className="setting-input">
+              <label className="setting-input-label">URL сервера</label>
+              <input
+                type="text"
+                value={audioSettings.youtubeServerUrl}
+                onChange={(e) => setAudioSettings({ youtubeServerUrl: e.target.value })}
+                placeholder="http://147.45.97.243:3000"
+                className="settings-text-input"
+              />
+              <span className="setting-input-hint">
+                Адрес сервера с yt-dlp для загрузки YouTube аудио
+              </span>
+            </div>
+          )}
+        </div>
+      </section>
+
       <div className="settings-footer">
-        <p>Music Player v1.0</p>
+        <p>Family Player v1.0</p>
       </div>
     </div>
   )

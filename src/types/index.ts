@@ -43,6 +43,9 @@ export interface AudioSettings {
   crossfade: boolean
   crossfadeDuration: number
   normalizeVolume: boolean
+  // YouTube settings
+  youtubeMode: 'local' | 'server' // local = yt-dlp on PC, server = remote server
+  youtubeServerUrl: string // URL of the media server for YouTube downloads
 }
 
 export type RepeatMode = 'off' | 'all' | 'one'

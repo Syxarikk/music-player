@@ -26,13 +26,17 @@ import {
   getAudioUrl as getPipedAudioUrl,
 } from '../services/youtubeApi'
 import { api, isElectron, isMobileStandalone } from '../services/apiClient'
+import type { AudioSettings } from '../types'
 import QueuePanel from './QueuePanel'
 import './Player.css'
 
 /**
  * Get audio URL for any track (local or YouTube)
  */
-async function getAudioUrl(track: Track): Promise<string | null> {
+async function getAudioUrl(
+  track: Track,
+  audioSettings: AudioSettings
+): Promise<string | null> {
   if (isYouTubeTrack(track)) {
     const videoId = getVideoId(track)
     if (!videoId) {
@@ -40,28 +44,34 @@ async function getAudioUrl(track: Track): Promise<string | null> {
       return null
     }
 
-    console.log(`Getting audio URL for YouTube video: ${videoId}, isElectron: ${isElectron}`)
-
-    if (isElectron) {
+    // Check YouTube mode from settings
+    if (audioSettings.youtubeMode === 'local' && isElectron) {
+      // Local mode: use yt-dlp on this PC via Electron
       try {
-        console.log('Trying yt-dlp via Electron...')
         const electronUrl = await window.electronAPI.getYouTubeAudioUrl(videoId)
-        if (electronUrl) {
-          console.log('yt-dlp success:', electronUrl)
-          return electronUrl
-        }
-        console.log('yt-dlp returned null, falling back to Piped API...')
+        if (electronUrl) return electronUrl
       } catch (err) {
-        console.error('yt-dlp error:', err)
+        console.error('Local yt-dlp error:', err)
       }
+      // Fallback to Piped API
       return await getPipedAudioUrl(videoId)
-    } else if (isMobileStandalone) {
-      return await getPipedAudioUrl(videoId)
-    } else {
-      return api.getAudioUrl(track)
     }
+
+    // Server mode: use remote server for YouTube downloads
+    if (audioSettings.youtubeServerUrl) {
+      return `${audioSettings.youtubeServerUrl}/api/youtube/audio/${videoId}`
+    }
+
+    // Mobile standalone: use Piped API
+    if (isMobileStandalone) {
+      return await getPipedAudioUrl(videoId)
+    }
+
+    // Web fallback
+    return api.getAudioUrl(track)
   }
 
+  // Local files
   if (isElectron) {
     return await window.electronAPI.getAudioUrl(track.path)
   } else if (isMobileStandalone) {
@@ -206,7 +216,7 @@ export default function Player() {
       setIsLoadingAudio(true)
 
       try {
-        const audioUrl = await getAudioUrl(currentTrack)
+        const audioUrl = await getAudioUrl(currentTrack, audioSettings)
 
         // Check if track changed while loading URL (using ref for accurate check)
         if (loadingTrackIdRef.current !== trackId) {
@@ -331,7 +341,7 @@ export default function Player() {
 
             const prepareCrossfade = async () => {
               try {
-                const nextUrl = await getAudioUrl(nextTrackData)
+                const nextUrl = await getAudioUrl(nextTrackData, audioSettings)
                 if (!nextUrl) {
                   isCrossfading.current = false
                   return

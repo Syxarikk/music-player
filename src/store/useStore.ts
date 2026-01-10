@@ -135,6 +135,8 @@ export const useStore = create<AppState>()(
         crossfade: false,
         crossfadeDuration: DEFAULT_CROSSFADE_DURATION,
         normalizeVolume: false,
+        youtubeMode: 'server', // Default to server for better compatibility
+        youtubeServerUrl: 'http://147.45.97.243:3000', // Default server URL
       },
       player: {
         isPlaying: false,

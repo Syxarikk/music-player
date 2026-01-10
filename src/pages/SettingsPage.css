@@ -216,6 +216,111 @@
   transform: scale(1.2);
 }
 
+/* Radio settings */
+.setting-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.setting-radio-title {
+  font-weight: 500;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.setting-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.setting-radio:hover {
+  background: var(--bg-hover);
+}
+
+.setting-radio input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.setting-radio-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+}
+
+.setting-radio-content svg {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.setting-radio input:checked + .setting-radio-content svg {
+  color: var(--accent-primary);
+}
+
+.setting-radio-label {
+  display: block;
+  font-weight: 500;
+}
+
+.setting-radio-desc {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* Text input setting */
+.setting-input {
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.setting-input-label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.settings-text-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color var(--transition-fast);
+}
+
+.settings-text-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.settings-text-input::placeholder {
+  color: var(--text-muted);
+}
+
+.setting-input-hint {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
 /* Footer */
 .settings-footer {
   text-align: center;
