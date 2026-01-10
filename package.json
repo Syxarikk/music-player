@@ -78,9 +78,11 @@
     "asar": false,
     "win": {
       "target": [
-        "nsis"
-      ],
-      "icon": "public/icon.ico"
+        "portable"
+      ]
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable.${ext}"
     },
     "mac": {
       "target": [

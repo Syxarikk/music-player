@@ -173,8 +173,6 @@ export default function Player() {
   useEffect(() => {
     if (!currentTrack) return
 
-    console.log('[TRACK_LOAD] Effect triggered for track:', currentTrack.id, currentTrack.title)
-
     // Store track ID to check if it changed during async loading
     const trackId = currentTrack.id
     loadingTrackIdRef.current = trackId
@@ -243,10 +241,8 @@ export default function Player() {
           format: format,
           volume: actualVolume,
           onload: () => {
-            console.log('[HOWL] onload triggered')
             // Final check before playing
             if (loadingTrackIdRef.current !== trackId) {
-              console.log('Track changed after Howl loaded, unloading')
               newSound.unload()
               return
             }
@@ -254,18 +250,10 @@ export default function Player() {
             setIsLoadingAudio(false)
             setIsAudioReady(true)
             if (isPlayingRef.current && !newSound.playing()) {
-              console.log('[HOWL] Starting playback from onload')
               newSound.play()
             }
           },
-          onplay: () => {
-            console.log('[HOWL] onplay triggered, seek position:', newSound.seek())
-          },
-          onseek: () => {
-            console.log('[HOWL] onseek triggered, new position:', newSound.seek())
-          },
           onend: () => {
-            console.log('[HOWL] onend triggered')
             if (!isCrossfading.current) {
               nextTrack()
             }
@@ -300,11 +288,9 @@ export default function Player() {
 
   useEffect(() => {
     if (!soundRef.current) return
-    console.log('[PLAY_EFFECT] isPlaying changed:', isPlaying, 'currently playing:', soundRef.current.playing())
     if (isPlaying) {
       // Only call play if not already playing to avoid restart
       if (!soundRef.current.playing()) {
-        console.log('[PLAY_EFFECT] Calling play()')
         soundRef.current.play()
       }
     } else {
@@ -451,18 +437,13 @@ export default function Player() {
     const sound = soundRef.current as any
     const audioNode = sound._sounds?.[0]?._node as HTMLAudioElement | undefined
 
-    console.log('[SEEK v2] Seeking to:', clampedTime, 'audioNode exists:', !!audioNode)
-
     if (audioNode) {
       // Seek directly on HTML5 audio element - this works reliably
-      console.log('[SEEK v2] Before: audioNode.currentTime =', audioNode.currentTime)
       audioNode.currentTime = clampedTime
-      console.log('[SEEK v2] After: audioNode.currentTime =', audioNode.currentTime)
       setCurrentTime(clampedTime)
       isCrossfading.current = false
     } else {
       // Fallback to Howler seek
-      console.log('[SEEK v2] Using Howler fallback')
       soundRef.current.seek(clampedTime)
       setCurrentTime(clampedTime)
       isCrossfading.current = false

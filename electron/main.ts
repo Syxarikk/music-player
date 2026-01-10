@@ -145,7 +145,6 @@ function registerLocalAudioProtocol() {
 function createWindow() {
   // Preload is always in same directory as main.js (both in dev and prod without asar)
   const preloadPath = path.join(__dirname, 'preload.js')
-  console.log('Preload path:', preloadPath)
 
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -164,24 +163,17 @@ function createWindow() {
     },
   })
 
-  // Always open DevTools for debugging (remove in final production)
-  mainWindow.webContents.openDevTools()
+  // Open DevTools only in development
+  if (isDev) {
+    mainWindow.webContents.openDevTools()
+  }
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
   } else {
     // In production, index.html is in dist folder (same level as electron folder in asar)
     const indexPath = path.join(__dirname, '../index.html')
-    console.log('Loading index.html from:', indexPath)
     mainWindow.loadFile(indexPath)
-  }
-
-  // Debug: log paths on startup
-  console.log('isDev:', isDev)
-  console.log('__dirname:', __dirname)
-  console.log('preloadPath:', preloadPath)
-  if (!isDev) {
-    console.log('resourcesPath:', process.resourcesPath)
   }
 
   mainWindow.on('closed', () => {
