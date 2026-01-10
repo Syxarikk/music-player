@@ -9,6 +9,11 @@
   overflow: hidden;
 }
 
+.sidebar-profile {
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
 .sidebar-nav {
   display: flex;
   flex-direction: column;

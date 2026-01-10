@@ -121,6 +121,7 @@ export default function Player() {
   const [isLoadingAudio, setIsLoadingAudio] = useState(false)
   const [audioError, setAudioError] = useState<string | null>(null)
   const [showQueue, setShowQueue] = useState(false)
+  const [isAudioReady, setIsAudioReady] = useState(false)
 
   // Handle favorite toggle - add track to library first if needed
   const handleToggleFavorite = useCallback(() => {
@@ -175,6 +176,7 @@ export default function Player() {
 
     isCrossfading.current = false
     setAudioError(null)
+    setIsAudioReady(false)
 
     if (nextSoundRef.current) {
       soundRef.current?.unload()
@@ -186,6 +188,7 @@ export default function Player() {
         soundRef.current.play()
       }
       setIsLoadingAudio(false)
+      setIsAudioReady(true)
       return
     }
 
@@ -243,6 +246,7 @@ export default function Player() {
             }
             setDuration(newSound.duration() || 0)
             setIsLoadingAudio(false)
+            setIsAudioReady(true)
             if (isPlayingRef.current && !newSound.playing()) {
               newSound.play()
             }
@@ -295,7 +299,7 @@ export default function Player() {
   }, [actualVolume])
 
   useEffect(() => {
-    if (!soundRef.current || !isPlaying) return
+    if (!soundRef.current || !isPlaying || !isAudioReady) return
 
     const interval = setInterval(() => {
       if (!soundRef.current) return
@@ -380,6 +384,7 @@ export default function Player() {
     return () => clearInterval(interval)
   }, [
     isPlaying,
+    isAudioReady,
     crossfade,
     crossfadeDuration,
     currentTrack?.id,

@@ -14,10 +14,11 @@ import {
   ListMusic,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import ProfileSelector from './ProfileSelector'
 import './Sidebar.css'
 
 export default function Sidebar() {
-  const { getPlaylists, createPlaylist, getTracks, getFavorites } = useStore()
+  const { getPlaylists, createPlaylist, getTracks, getFavorites, profiles } = useStore()
 
   const playlists = getPlaylists()
   const tracks = getTracks()
@@ -28,8 +29,17 @@ export default function Sidebar() {
     createPlaylist(name)
   }
 
+  // Show profile welcome screen if no profiles
+  if (profiles.length === 0) {
+    return <ProfileSelector />
+  }
+
   return (
     <aside className="sidebar">
+      <div className="sidebar-profile">
+        <ProfileSelector />
+      </div>
+
       <nav className="sidebar-nav">
         <NavLink to="/" className="nav-item">
           <Home size={22} />
