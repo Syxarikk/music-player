@@ -78,7 +78,7 @@
     "asar": false,
     "win": {
       "target": [
-        "portable"
+        "nsis"
       ]
     },
     "portable": {
