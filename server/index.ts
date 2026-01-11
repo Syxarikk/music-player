@@ -182,7 +182,7 @@ app.get('/api/health', (req: Request, res: Response) => {
 // Stream YouTube audio
 app.get('/api/youtube/audio/:videoId', async (req: Request, res: Response) => {
   try {
-    const { videoId } = req.params
+    const videoId = req.params.videoId as string
 
     if (!videoId || videoId.length < 5) {
       return res.status(400).json({ error: 'Invalid video ID' })
@@ -210,7 +210,7 @@ app.get('/api/youtube/audio/:videoId', async (req: Request, res: Response) => {
 // Get info about a video
 app.get('/api/youtube/info/:videoId', async (req: Request, res: Response) => {
   try {
-    const { videoId } = req.params
+    const videoId = req.params.videoId as string
     const instance = PIPED_INSTANCES[currentPipedIndex]
 
     const data = await fetchJson(`${instance}/streams/${videoId}`)
