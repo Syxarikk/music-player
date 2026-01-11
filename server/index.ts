@@ -12,12 +12,13 @@ import http from 'http'
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000
 const HOST = process.env.HOST || '0.0.0.0'
 
-// Piped instances (fallback list)
+// Piped instances (fallback list) - updated working instances
 const PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
-  'https://pipedapi.adminforge.de',
-  'https://api.piped.yt',
-  'https://pipedapi.in.projectsegfau.lt',
+  'https://pipedapi.wireway.ch',
+  'https://pipedapi.darkness.services',
+  'https://pipedapi.drgns.space',
+  'https://piped-api.hostux.net',
+  'https://api.piped.private.coffee',
 ]
 
 let currentPipedIndex = 0
