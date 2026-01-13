@@ -33,6 +33,7 @@
     "@capacitor/splash-screen": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "framer-motion": "^10.16.16",
     "howler": "^2.2.4",
@@ -60,6 +61,7 @@
     "wait-on": "^7.2.0"
   },
   "build": {
+    "publish": null,
     "appId": "com.familyplayer.app",
     "productName": "Family Player",
     "directories": {
@@ -72,7 +74,9 @@
       {
         "from": "resources",
         "to": ".",
-        "filter": ["yt-dlp.exe"]
+        "filter": [
+          "yt-dlp.exe"
+        ]
       }
     ],
     "asar": false,
