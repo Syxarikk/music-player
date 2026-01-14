@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import {
   Play,
   Pause,
@@ -26,6 +26,7 @@ import {
   getAudioUrl as getPipedAudioUrl,
 } from '../services/youtubeApi'
 import { api, isElectron, isMobileStandalone } from '../services/apiClient'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import type { AudioSettings } from '../types'
 import QueuePanel from './QueuePanel'
 import './Player.css'
@@ -127,7 +128,45 @@ export default function Player() {
   const isPlayingRef = useRef(isPlaying)
   const loadingTrackIdRef = useRef<string | null>(null)
   const isSeekingRef = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const isLoadingRef = useRef(false) // Mutex to prevent concurrent loads
+  const activeFadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null) // Crossfade timer
   const actualVolume = isMuted ? 0 : volume
+
+  // Refs for event handlers to avoid recreating listeners
+  const calculateTimeFromEventRef = useRef<(e: MouseEvent | React.MouseEvent) => number>(() => 0)
+  const performSeekRef = useRef<(time: number) => void>(() => {})
+  const volumeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Local volume state for immediate UI feedback (debounced store update)
+  const [localVolume, setLocalVolume] = useState(volume)
+
+  // Sync local volume with store when store changes externally
+  useEffect(() => {
+    setLocalVolume(volume)
+  }, [volume])
+
+  // Debounced volume handler - updates UI immediately, store with delay
+  const handleVolumeChange = useCallback((newVolume: number) => {
+    setLocalVolume(newVolume) // Immediate UI update
+
+    // Debounce the store update
+    if (volumeDebounceRef.current) {
+      clearTimeout(volumeDebounceRef.current)
+    }
+    volumeDebounceRef.current = setTimeout(() => {
+      setVolume(newVolume)
+    }, 50)
+  }, [setVolume])
+
+  // Cleanup volume debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (volumeDebounceRef.current) {
+        clearTimeout(volumeDebounceRef.current)
+      }
+    }
+  }, [])
 
   const [isLoadingAudio, setIsLoadingAudio] = useState(false)
   const [audioError, setAudioError] = useState<string | null>(null)
@@ -157,9 +196,41 @@ export default function Player() {
 
   useEffect(() => {
     return () => {
-      soundRef.current?.unload()
-      nextSoundRef.current?.unload()
+      // Abort any pending audio loading
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = null
+
+      // Clean up any active fade timer first to prevent callbacks
+      if (activeFadeTimerRef.current) {
+        clearInterval(activeFadeTimerRef.current)
+        activeFadeTimerRef.current = null
+      }
+
+      // Safely stop and unload all audio instances
+      try {
+        if (soundRef.current) {
+          soundRef.current.stop()
+          soundRef.current.unload()
+          soundRef.current = null
+        }
+      } catch (e) {
+        console.warn('Error cleaning up soundRef:', e)
+      }
+
+      try {
+        if (nextSoundRef.current) {
+          nextSoundRef.current.stop()
+          nextSoundRef.current.unload()
+          nextSoundRef.current = null
+        }
+      } catch (e) {
+        console.warn('Error cleaning up nextSoundRef:', e)
+      }
+
+      // Reset flags
       isCrossfading.current = false
+      isLoadingRef.current = false
+      loadingTrackIdRef.current = null
     }
   }, [])
 
@@ -187,10 +258,21 @@ export default function Player() {
     const trackId = currentTrack.id
     loadingTrackIdRef.current = trackId
 
+    // Abort any previous loading operation immediately
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+
+    // Reset loading state - abort already signals cancellation to previous load
+    isLoadingRef.current = false
+
     isCrossfading.current = false
     setAudioError(null)
     setIsAudioReady(false)
 
+    // Use crossfade preloaded track if available
     if (nextSoundRef.current) {
       soundRef.current?.unload()
       soundRef.current = nextSoundRef.current
@@ -213,29 +295,41 @@ export default function Player() {
     }
 
     const loadAudio = async () => {
+      // Set loading mutex
+      isLoadingRef.current = true
       setIsLoadingAudio(true)
 
       try {
+        // Check if aborted before starting
+        if (abortController.signal.aborted) {
+          isLoadingRef.current = false
+          return
+        }
+
         const audioUrl = await getAudioUrl(currentTrack, audioSettings)
 
-        // Check if track changed while loading URL (using ref for accurate check)
-        if (loadingTrackIdRef.current !== trackId) {
-          console.log('Track changed during URL fetch, aborting load for:', trackId)
+        // Check if aborted or track changed
+        if (abortController.signal.aborted || loadingTrackIdRef.current !== trackId) {
+          console.log('Track load aborted for:', trackId)
+          isLoadingRef.current = false
           return
         }
 
         if (!audioUrl) {
           setAudioError('Не удалось загрузить аудио')
           setIsLoadingAudio(false)
+          isLoadingRef.current = false
           return
         }
 
-        // Double-check track hasn't changed and no sound is playing
-        if (loadingTrackIdRef.current !== trackId) {
+        // Double-check before creating Howl
+        if (abortController.signal.aborted || loadingTrackIdRef.current !== trackId) {
           console.log('Track changed before creating Howl, aborting')
+          isLoadingRef.current = false
           return
         }
 
+        // Clean up any existing sound
         if (soundRef.current) {
           soundRef.current.stop()
           soundRef.current.unload()
@@ -252,13 +346,15 @@ export default function Player() {
           volume: actualVolume,
           onload: () => {
             // Final check before playing
-            if (loadingTrackIdRef.current !== trackId) {
+            if (abortController.signal.aborted || loadingTrackIdRef.current !== trackId) {
               newSound.unload()
+              isLoadingRef.current = false
               return
             }
             setDuration(newSound.duration() || 0)
             setIsLoadingAudio(false)
             setIsAudioReady(true)
+            isLoadingRef.current = false
             if (isPlayingRef.current && !newSound.playing()) {
               newSound.play()
             }
@@ -268,26 +364,47 @@ export default function Player() {
               nextTrack()
             }
           },
-          onloaderror: () => {
-            if (loadingTrackIdRef.current === trackId) {
+          onloaderror: (_id, error) => {
+            if (!abortController.signal.aborted && loadingTrackIdRef.current === trackId) {
+              console.error('Audio load error:', error)
               setAudioError('Ошибка загрузки аудио')
               setIsLoadingAudio(false)
+              isLoadingRef.current = false
+            }
+          },
+          onplayerror: (_id, error) => {
+            if (!abortController.signal.aborted && loadingTrackIdRef.current === trackId) {
+              console.error('Audio play error:', error)
+              // Try to recover by unlocking audio context
+              newSound.once('unlock', () => {
+                newSound.play()
+              })
             }
           },
         })
 
-        soundRef.current = newSound
-      } catch {
-        if (loadingTrackIdRef.current === trackId) {
+        // Only assign if not aborted
+        if (!abortController.signal.aborted && loadingTrackIdRef.current === trackId) {
+          soundRef.current = newSound
+        } else {
+          newSound.unload()
+        }
+      } catch (error) {
+        if (!abortController.signal.aborted && loadingTrackIdRef.current === trackId) {
+          console.error('Audio fetch error:', error)
           setAudioError('Ошибка получения аудио')
           setIsLoadingAudio(false)
         }
+        isLoadingRef.current = false
       }
     }
 
     loadAudio()
 
     return () => {
+      // Abort loading on cleanup
+      abortController.abort()
+      isLoadingRef.current = false
       if (!isCrossfading.current && soundRef.current) {
         soundRef.current.stop()
         soundRef.current.unload()
@@ -363,7 +480,12 @@ export default function Player() {
                       const fadingOutSound = soundRef.current
                       const fadingInSound = nextSoundRef.current
 
-                      const fadeTimer = setInterval(() => {
+                      // Clear any previous fade timer before starting new one
+                      if (activeFadeTimerRef.current) {
+                        clearInterval(activeFadeTimerRef.current)
+                      }
+
+                      activeFadeTimerRef.current = setInterval(() => {
                         step++
                         const progress = step / fadeSteps
 
@@ -375,7 +497,10 @@ export default function Player() {
                         }
 
                         if (step >= fadeSteps) {
-                          clearInterval(fadeTimer)
+                          if (activeFadeTimerRef.current) {
+                            clearInterval(activeFadeTimerRef.current)
+                            activeFadeTimerRef.current = null
+                          }
                           fadingOutSound?.unload()
                         }
                       }, fadeInterval)
@@ -416,6 +541,9 @@ export default function Player() {
     return percent * duration
   }, [duration])
 
+  // Keep ref in sync with latest callback
+  calculateTimeFromEventRef.current = calculateTimeFromEvent
+
   const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressRef.current || !soundRef.current) return
 
@@ -442,22 +570,13 @@ export default function Player() {
 
     const clampedTime = Math.max(0, Math.min(newTime, duration || newTime))
 
-    // Access the underlying HTML5 audio element directly
-    // Howler stores it in _sounds[0]._node when html5: true
-    const sound = soundRef.current as any
-    const audioNode = sound._sounds?.[0]?._node as HTMLAudioElement | undefined
+    // Use Howler's public API for seeking
+    // The html5 mode handles seeking internally
+    soundRef.current.seek(clampedTime)
 
-    if (audioNode) {
-      // Seek directly on HTML5 audio element - this works reliably
-      audioNode.currentTime = clampedTime
-      setCurrentTime(clampedTime)
-      isCrossfading.current = false
-    } else {
-      // Fallback to Howler seek
-      soundRef.current.seek(clampedTime)
-      setCurrentTime(clampedTime)
-      isCrossfading.current = false
-    }
+    // Update UI state immediately for responsiveness
+    setCurrentTime(clampedTime)
+    isCrossfading.current = false
 
     // Allow time updates again after a short delay
     setTimeout(() => {
@@ -465,33 +584,37 @@ export default function Player() {
     }, 50)
   }, [setCurrentTime, duration])
 
+  // Keep ref in sync with latest callback
+  performSeekRef.current = performSeek
+
   useEffect(() => {
     if (!isDragging) return
 
+    // Use refs to avoid recreating listeners when callbacks change
     const handleMouseMove = (e: MouseEvent) => {
-      const newTime = calculateTimeFromEvent(e)
+      const newTime = calculateTimeFromEventRef.current(e)
       setDragTime(newTime)
     }
 
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length > 0) {
         const touch = e.touches[0]
-        const newTime = calculateTimeFromEvent(touch as unknown as MouseEvent)
+        const newTime = calculateTimeFromEventRef.current(touch as unknown as MouseEvent)
         setDragTime(newTime)
       }
     }
 
     const handleMouseUp = (e: MouseEvent) => {
-      const newTime = calculateTimeFromEvent(e)
-      performSeek(newTime)
+      const newTime = calculateTimeFromEventRef.current(e)
+      performSeekRef.current(newTime)
       setIsDragging(false)
     }
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.changedTouches.length > 0) {
         const touch = e.changedTouches[0]
-        const newTime = calculateTimeFromEvent(touch as unknown as MouseEvent)
-        performSeek(newTime)
+        const newTime = calculateTimeFromEventRef.current(touch as unknown as MouseEvent)
+        performSeekRef.current(newTime)
       }
       setIsDragging(false)
     }
@@ -507,7 +630,7 @@ export default function Player() {
       document.removeEventListener('touchmove', handleTouchMove)
       document.removeEventListener('touchend', handleTouchEnd)
     }
-  }, [isDragging, calculateTimeFromEvent, performSeek])
+  }, [isDragging]) // Only re-run when isDragging changes
 
   const handleRepeatClick = () => {
     const currentIndex = REPEAT_MODES.indexOf(repeatMode)
@@ -515,8 +638,20 @@ export default function Player() {
     setRepeatMode(nextMode)
   }
 
-  const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2
+  // Memoize VolumeIcon for performance (use localVolume for immediate feedback)
+  const VolumeIcon = useMemo(() => {
+    if (isMuted || localVolume === 0) return VolumeX
+    if (localVolume < 0.5) return Volume1
+    return Volume2
+  }, [isMuted, localVolume])
+
   const isFav = currentTrack ? isFavorite(currentTrack.id) : false
+
+  // Sanitize cover art URL for security
+  const safeCoverArt = useMemo(() =>
+    sanitizeImageUrl(currentTrack?.coverArt),
+    [currentTrack?.coverArt]
+  )
 
   if (!currentTrack) {
     return (
@@ -535,8 +670,8 @@ export default function Player() {
     <div className="player">
       <div className="player-track">
         <div className="player-cover">
-          {currentTrack.coverArt ? (
-            <img src={currentTrack.coverArt} alt={currentTrack.album} />
+          {safeCoverArt ? (
+            <img src={safeCoverArt} alt={currentTrack.album} />
           ) : (
             <div className="player-cover-placeholder">
               <Music size={24} />
@@ -632,8 +767,8 @@ export default function Player() {
             min="0"
             max="1"
             step="0.01"
-            value={isMuted ? 0 : volume}
-            onChange={(e) => setVolume(parseFloat(e.target.value))}
+            value={isMuted ? 0 : localVolume}
+            onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
             className="volume-slider"
           />
         </div>

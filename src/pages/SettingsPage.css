@@ -321,6 +321,23 @@
   margin-top: 8px;
 }
 
+.setting-input-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--error);
+  margin-top: 8px;
+}
+
+.settings-text-input.input-error {
+  border-color: var(--error);
+}
+
+.settings-text-input.input-error:focus {
+  border-color: var(--error);
+}
+
 /* Footer */
 .settings-footer {
   text-align: center;

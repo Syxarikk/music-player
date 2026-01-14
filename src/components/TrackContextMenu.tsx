@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { Track } from '../types'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import './TrackContextMenu.css'
 
 interface TrackContextMenuProps {
@@ -40,10 +41,15 @@ export default function TrackContextMenu({
 
   const playlists = getPlaylists()
   const menuRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const [showPlaylists, setShowPlaylists] = useState(false)
   const [adjustedPosition, setAdjustedPosition] = useState(position)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showNewPlaylistInput, setShowNewPlaylistInput] = useState(false)
+  const [newPlaylistName, setNewPlaylistName] = useState('')
 
   const isFav = isFavorite(track.id)
+  const safeCoverArt = sanitizeImageUrl(track.coverArt)
 
   // Adjust position to keep menu in viewport
   useEffect(() => {
@@ -105,11 +111,17 @@ export default function TrackContextMenu({
     onClose()
   }
 
-  const handleDelete = () => {
-    if (confirm(`Удалить "${track.title}" из медиатеки?`)) {
-      removeTrack(track.id)
-    }
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true)
+  }
+
+  const handleDeleteConfirm = () => {
+    removeTrack(track.id)
     onClose()
+  }
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false)
   }
 
   const handleAddToPlaylist = (playlistId: string) => {
@@ -117,15 +129,31 @@ export default function TrackContextMenu({
     onClose()
   }
 
+  const handleShowNewPlaylistInput = () => {
+    setShowNewPlaylistInput(true)
+    setNewPlaylistName('')
+    // Focus input after render
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
   const handleCreatePlaylist = () => {
-    const name = prompt('Название нового плейлиста:')
-    if (name?.trim()) {
-      const playlist = createPlaylist(name.trim())
+    if (newPlaylistName.trim()) {
+      // Validate and sanitize playlist name (max 100 chars)
+      const sanitizedName = newPlaylistName.trim().slice(0, 100)
+      const playlist = createPlaylist(sanitizedName)
       if (playlist) {
         addToPlaylist(playlist.id, track.id)
       }
+      onClose()
     }
-    onClose()
+  }
+
+  const handleNewPlaylistKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleCreatePlaylist()
+    } else if (e.key === 'Escape') {
+      setShowNewPlaylistInput(false)
+    }
   }
 
   return (
@@ -139,9 +167,9 @@ export default function TrackContextMenu({
     >
       <div className="context-menu-header">
         <div className="context-menu-track">
-          {track.coverArt ? (
+          {safeCoverArt ? (
             <img
-              src={track.coverArt}
+              src={safeCoverArt}
               alt={track.title}
               className="context-menu-cover"
             />
@@ -191,13 +219,35 @@ export default function TrackContextMenu({
 
           {showPlaylists && (
             <div className="context-submenu">
-              <button
-                className="context-menu-option new-playlist"
-                onClick={handleCreatePlaylist}
-              >
-                <Plus size={16} />
-                <span>Новый плейлист</span>
-              </button>
+              {showNewPlaylistInput ? (
+                <div className="context-menu-input-row">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={newPlaylistName}
+                    onChange={(e) => setNewPlaylistName(e.target.value)}
+                    onKeyDown={handleNewPlaylistKeyDown}
+                    placeholder="Название плейлиста"
+                    className="context-menu-input"
+                    maxLength={100}
+                  />
+                  <button
+                    className="context-menu-input-btn"
+                    onClick={handleCreatePlaylist}
+                    disabled={!newPlaylistName.trim()}
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="context-menu-option new-playlist"
+                  onClick={handleShowNewPlaylistInput}
+                >
+                  <Plus size={16} />
+                  <span>Новый плейлист</span>
+                </button>
+              )}
               {playlists.map((playlist) => {
                 const isInPlaylist = playlist.tracks.includes(track.id)
                 return (
@@ -223,10 +273,24 @@ export default function TrackContextMenu({
 
         <div className="context-menu-divider" />
 
-        <button className="context-menu-option danger" onClick={handleDelete}>
-          <Trash2 size={18} />
-          <span>Удалить из медиатеки</span>
-        </button>
+        {showDeleteConfirm ? (
+          <div className="context-menu-confirm">
+            <span className="confirm-text">Удалить трек?</span>
+            <div className="confirm-buttons">
+              <button className="confirm-btn confirm-yes" onClick={handleDeleteConfirm}>
+                Да
+              </button>
+              <button className="confirm-btn confirm-no" onClick={handleDeleteCancel}>
+                Нет
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="context-menu-option danger" onClick={handleDeleteClick}>
+            <Trash2 size={18} />
+            <span>Удалить из медиатеки</span>
+          </button>
+        )}
       </div>
     </div>
   )

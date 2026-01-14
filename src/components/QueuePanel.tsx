@@ -6,6 +6,7 @@
 import { X, Music, GripVertical, Trash2 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { formatTime } from '../utils/audio'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import './QueuePanel.css'
 
 interface QueuePanelProps {
@@ -54,10 +55,13 @@ export default function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
           {currentTrack && (
             <div className="queue-section">
               <div className="queue-section-title">Сейчас играет</div>
+              {(() => {
+                const safeCoverArt = sanitizeImageUrl(currentTrack.coverArt)
+                return (
               <div className="queue-item current">
                 <div className="queue-item-cover">
-                  {currentTrack.coverArt ? (
-                    <img src={currentTrack.coverArt} alt={currentTrack.title} />
+                  {safeCoverArt ? (
+                    <img src={safeCoverArt} alt={currentTrack.title} />
                   ) : (
                     <Music size={16} />
                   )}
@@ -70,6 +74,8 @@ export default function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
                   {formatTime(currentTrack.duration)}
                 </div>
               </div>
+                )
+              })()}
             </div>
           )}
 
@@ -79,7 +85,9 @@ export default function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
                 Далее ({upcomingTracks.length})
               </div>
               <div className="queue-list">
-                {upcomingTracks.map((track, idx) => (
+                {upcomingTracks.map((track, idx) => {
+                  const safeCoverArt = sanitizeImageUrl(track.coverArt)
+                  return (
                   <div
                     key={`${track.id}-${idx}`}
                     className="queue-item"
@@ -89,8 +97,8 @@ export default function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
                       <GripVertical size={14} />
                     </div>
                     <div className="queue-item-cover">
-                      {track.coverArt ? (
-                        <img src={track.coverArt} alt={track.title} />
+                      {safeCoverArt ? (
+                        <img src={safeCoverArt} alt={track.title} />
                       ) : (
                         <Music size={16} />
                       )}
@@ -103,7 +111,8 @@ export default function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
                       {formatTime(track.duration)}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -114,15 +123,17 @@ export default function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
                 История ({previousTracks.length})
               </div>
               <div className="queue-list">
-                {previousTracks.map((track, idx) => (
+                {previousTracks.map((track, idx) => {
+                  const safeCoverArt = sanitizeImageUrl(track.coverArt)
+                  return (
                   <div
                     key={`${track.id}-${idx}`}
                     className="queue-item history"
                     onClick={() => handleTrackClick(idx)}
                   >
                     <div className="queue-item-cover">
-                      {track.coverArt ? (
-                        <img src={track.coverArt} alt={track.title} />
+                      {safeCoverArt ? (
+                        <img src={safeCoverArt} alt={track.title} />
                       ) : (
                         <Music size={16} />
                       )}
@@ -135,7 +146,8 @@ export default function QueuePanel({ isOpen, onClose }: QueuePanelProps) {
                       {formatTime(track.duration)}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}

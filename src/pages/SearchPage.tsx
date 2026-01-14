@@ -3,7 +3,7 @@
  * Search through local library and YouTube
  */
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useDeferredValue } from 'react'
 import { Search, X, Play, Plus, Loader2, Youtube, Music, AlertCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import TrackList from '../components/TrackList'
@@ -11,6 +11,7 @@ import AddTrackMenu from '../components/AddTrackMenu'
 import { formatCount, PLURAL_FORMS } from '../utils/pluralize'
 import { searchYouTube } from '../services/youtubeApi'
 import { formatTime } from '../utils/audio'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import type { Track } from '../types'
 import './SearchPage.css'
 
@@ -33,9 +34,13 @@ export default function SearchPage() {
   const [youtubeError, setYoutubeError] = useState<string | null>(null)
   const [hasSearchedYoutube, setHasSearchedYoutube] = useState(false)
 
-  // Local search results
+  // Deferred query for better performance during typing
+  const deferredQuery = useDeferredValue(query)
+  const isSearchPending = query !== deferredQuery
+
+  // Local search results - uses deferred query to avoid blocking UI
   const localResults = useMemo(() => {
-    const trimmed = query.trim().toLowerCase()
+    const trimmed = deferredQuery.trim().toLowerCase()
     if (!trimmed) return []
 
     return tracks.filter(
@@ -44,7 +49,7 @@ export default function SearchPage() {
         track.artist.toLowerCase().includes(trimmed) ||
         track.album.toLowerCase().includes(trimmed)
     )
-  }, [query, tracks])
+  }, [deferredQuery, tracks])
 
   const handleYoutubeSearch = useCallback(async () => {
     if (!query.trim()) return
@@ -153,7 +158,12 @@ export default function SearchPage() {
         {activeTab === 'local' && (
           <>
             {query.trim() ? (
-              localResults.length > 0 ? (
+              isSearchPending ? (
+                <div className="search-loading">
+                  <Loader2 size={24} className="animate-spin" />
+                  <span>Поиск...</span>
+                </div>
+              ) : localResults.length > 0 ? (
                 <>
                   <p className="search-results-count">
                     Найдено: {formatCount(localResults.length, PLURAL_FORMS.track)}
@@ -219,41 +229,48 @@ export default function SearchPage() {
                         player.currentTrack?.id === track.id ? 'active' : ''
                       }`}
                     >
-                      <div className="youtube-result-cover">
-                        {track.coverArt ? (
-                          <img src={track.coverArt} alt={track.title} />
-                        ) : (
-                          <div className="youtube-result-cover-placeholder">
-                            <Youtube size={24} />
-                          </div>
-                        )}
-                        <button
-                          className="youtube-result-play"
-                          onClick={() => handlePlayYoutubeTrack(track)}
-                        >
-                          <Play size={20} fill="currentColor" />
-                        </button>
-                      </div>
-                      <div className="youtube-result-info">
-                        <div className="youtube-result-title">{track.title}</div>
-                        <div className="youtube-result-artist">
-                          {track.artist}
-                          {track.duration > 0 && (
-                            <span className="youtube-result-duration">
-                              {' '}• {formatTime(track.duration)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="youtube-result-actions">
-                        <button
-                          className="youtube-result-action"
-                          onClick={() => handleOpenAddMenu(track)}
-                          title="Добавить"
-                        >
-                          <Plus size={20} />
-                        </button>
-                      </div>
+                      {(() => {
+                        const safeCoverArt = sanitizeImageUrl(track.coverArt)
+                        return (
+                          <>
+                            <div className="youtube-result-cover">
+                              {safeCoverArt ? (
+                                <img src={safeCoverArt} alt={track.title} />
+                              ) : (
+                                <div className="youtube-result-cover-placeholder">
+                                  <Youtube size={24} />
+                                </div>
+                              )}
+                              <button
+                                className="youtube-result-play"
+                                onClick={() => handlePlayYoutubeTrack(track)}
+                              >
+                                <Play size={20} fill="currentColor" />
+                              </button>
+                            </div>
+                            <div className="youtube-result-info">
+                              <div className="youtube-result-title">{track.title}</div>
+                              <div className="youtube-result-artist">
+                                {track.artist}
+                                {track.duration > 0 && (
+                                  <span className="youtube-result-duration">
+                                    {' '}• {formatTime(track.duration)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="youtube-result-actions">
+                              <button
+                                className="youtube-result-action"
+                                onClick={() => handleOpenAddMenu(track)}
+                                title="Добавить"
+                              >
+                                <Plus size={20} />
+                              </button>
+                            </div>
+                          </>
+                        )
+                      })()}
                     </div>
                   ))}
                 </div>

@@ -166,3 +166,98 @@
   padding: 8px 12px;
   font-size: 0.85rem;
 }
+
+/* Delete confirmation */
+.context-menu-confirm {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.confirm-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.confirm-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.confirm-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.confirm-yes {
+  background: var(--error);
+  color: white;
+}
+
+.confirm-yes:hover {
+  background: #dc2626;
+}
+
+.confirm-no {
+  background: var(--bg-highlight);
+  color: var(--text-primary);
+}
+
+.confirm-no:hover {
+  background: var(--bg-tertiary);
+}
+
+/* New playlist input */
+.context-menu-input-row {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+}
+
+.context-menu-input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-highlight);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.context-menu-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.context-menu-input::placeholder {
+  color: var(--text-muted);
+}
+
+.context-menu-input-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--accent-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.context-menu-input-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.context-menu-input-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

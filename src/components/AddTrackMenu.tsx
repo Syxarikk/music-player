@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { Track } from '../types'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import './AddTrackMenu.css'
 
 interface AddTrackMenuProps {
@@ -116,7 +117,9 @@ export default function AddTrackMenu({ track, isOpen, onClose, position }: AddTr
       addTracks([{ ...track, addedAt: Date.now() }])
     }
 
-    const playlist = createPlaylist(newPlaylistName.trim())
+    // Validate and sanitize playlist name (max 100 chars)
+    const sanitizedName = newPlaylistName.trim().slice(0, 100)
+    const playlist = createPlaylist(sanitizedName)
     if (playlist) {
       addToPlaylist(playlist.id, track.id)
     }
@@ -141,8 +144,8 @@ export default function AddTrackMenu({ track, isOpen, onClose, position }: AddTr
       >
         <div className="add-track-menu-header">
           <div className="add-track-menu-track">
-            {track.coverArt && (
-              <img src={track.coverArt} alt={track.title} className="add-track-menu-cover" />
+            {sanitizeImageUrl(track.coverArt) && (
+              <img src={sanitizeImageUrl(track.coverArt)!} alt={track.title} className="add-track-menu-cover" />
             )}
             <div className="add-track-menu-info">
               <div className="add-track-menu-title">{track.title}</div>

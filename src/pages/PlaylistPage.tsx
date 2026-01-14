@@ -9,6 +9,7 @@ import { useStore } from '../store/useStore'
 import TrackList from '../components/TrackList'
 import { formatTotalDuration, shuffleArray } from '../utils/audio'
 import { formatCount, PLURAL_FORMS } from '../utils/pluralize'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import type { Track } from '../types'
 import './PlaylistPage.css'
 
@@ -40,7 +41,7 @@ export default function PlaylistPage() {
     .map((trackId) => tracks.find((t) => t.id === trackId))
     .filter((t): t is Track => t !== undefined)
 
-  const coverArt = playlist.coverArt || playlistTracks[0]?.coverArt
+  const coverArt = sanitizeImageUrl(playlist.coverArt || playlistTracks[0]?.coverArt)
 
   const handlePlay = () => {
     if (playlistTracks.length > 0) {

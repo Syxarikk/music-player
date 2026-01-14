@@ -3,6 +3,7 @@ import { Play, Music } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { Playlist, Track } from '../types'
 import { formatCount, PLURAL_FORMS } from '../utils/pluralize'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import './PlaylistCard.css'
 
 interface PlaylistCardProps {
@@ -19,7 +20,7 @@ export default function PlaylistCard({ playlist }: PlaylistCardProps) {
     .map((id) => tracks.find((t) => t.id === id))
     .filter((t): t is Track => t !== undefined)
 
-  const coverArt = playlist.coverArt || playlistTracks[0]?.coverArt
+  const coverArt = sanitizeImageUrl(playlist.coverArt || playlistTracks[0]?.coverArt)
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation()

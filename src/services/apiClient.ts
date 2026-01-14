@@ -19,6 +19,44 @@ export const isMobileStandalone = isCapacitor && !isElectron
 // Storage key for server URL
 const SERVER_URL_KEY = 'family-player-server-url'
 
+/**
+ * Safe base64 encoding that handles Unicode strings
+ */
+function safeBase64Encode(str: string): string {
+  try {
+    // Use TextEncoder for proper UTF-8 handling
+    const encoder = new TextEncoder()
+    const bytes = encoder.encode(str)
+    let binary = ''
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i])
+    }
+    return btoa(binary)
+  } catch {
+    // Fallback for older browsers
+    return btoa(unescape(encodeURIComponent(str)))
+  }
+}
+
+/**
+ * Safe base64 decoding that handles Unicode strings
+ * Exported for use in server.ts if needed
+ */
+export function safeBase64Decode(str: string): string {
+  try {
+    const binary = atob(str)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    const decoder = new TextDecoder()
+    return decoder.decode(bytes)
+  } catch {
+    // Fallback for older browsers
+    return decodeURIComponent(escape(atob(str)))
+  }
+}
+
 // Get stored server URL
 function getStoredServerUrl(): string {
   if (typeof window === 'undefined') return ''
@@ -47,8 +85,64 @@ function getApiBase(): string {
 // API base URL (can be updated at runtime)
 let API_BASE = getApiBase()
 
+/**
+ * Validate URL format for security
+ * Only allows http/https protocols and valid URL structure
+ * Includes SSRF protection - blocks dangerous internal ports
+ */
+function isValidServerUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false
+
+  try {
+    const parsed = new URL(url)
+
+    // Only allow http/https protocols
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return false
+    }
+
+    // Block javascript:, data:, etc.
+    if (parsed.protocol.includes('javascript') || parsed.protocol.includes('data')) {
+      return false
+    }
+
+    // SSRF Protection: Block dangerous internal service ports
+    const dangerousPorts = [22, 23, 25, 53, 110, 143, 389, 445, 587, 636, 993, 995, 1433, 1521, 3306, 5432, 5900, 6379, 11211, 27017]
+    const port = parseInt(parsed.port) || (parsed.protocol === 'https:' ? 443 : 80)
+    if (dangerousPorts.includes(port)) {
+      console.warn('Blocked potentially dangerous port:', port)
+      return false
+    }
+
+    // Block metadata service IPs (cloud environments)
+    const hostname = parsed.hostname.toLowerCase()
+    if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
+      console.warn('Blocked cloud metadata service URL')
+      return false
+    }
+
+    return true
+  } catch {
+    return false
+  }
+}
+
 // Update API base URL (for mobile app server configuration)
+// SECURITY: Validates URL before saving
 export function setApiBase(url: string): void {
+  // Allow empty string to clear
+  if (url === '') {
+    API_BASE = ''
+    localStorage.removeItem(SERVER_URL_KEY)
+    return
+  }
+
+  // Validate URL format
+  if (!isValidServerUrl(url)) {
+    console.error('Invalid server URL format:', url)
+    return
+  }
+
   API_BASE = url
   localStorage.setItem(SERVER_URL_KEY, url)
 }
@@ -68,6 +162,9 @@ export const api = {
   // Health check
   async health(): Promise<{ status: string; version: string }> {
     const response = await fetch(`${API_BASE}/api/health`)
+    if (!response.ok) {
+      throw new Error(`Health check failed: ${response.status}`)
+    }
     return response.json()
   },
 
@@ -79,7 +176,7 @@ export const api = {
       for (const file of files) {
         const metadata = await window.electronAPI.getFileMetadata(file)
         tracks.push({
-          id: btoa(file),
+          id: safeBase64Encode(file),
           ...metadata,
           source: 'local',
         })
@@ -92,6 +189,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ folderPath }),
     })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Scan failed' }))
+      throw new Error(error.error || `Scan failed: ${response.status}`)
+    }
     const data = await response.json()
     return data.tracks
   },
@@ -99,6 +200,9 @@ export const api = {
   // Get all tracks
   async getTracks(): Promise<Track[]> {
     const response = await fetch(`${API_BASE}/api/tracks`)
+    if (!response.ok) {
+      throw new Error(`Failed to get tracks: ${response.status}`)
+    }
     return response.json()
   },
 
@@ -114,12 +218,13 @@ export const api = {
     }
 
     if (isElectron) {
-      // Local file in Electron
-      return `file:///${track.path.replace(/\\/g, '/')}`
+      // Local file in Electron - use secure protocol (resolved via IPC)
+      // Note: actual URL is generated via getAudioUrl IPC call, this is fallback
+      return `local-audio://audio/${encodeURIComponent(track.path.replace(/\\/g, '/'))}`
     }
 
-    // Web: stream from server
-    const trackId = btoa(track.path)
+    // Web: stream from server (use safe base64 for Unicode paths)
+    const trackId = safeBase64Encode(track.path)
     return `${API_BASE}/api/stream/${trackId}`
   },
 
@@ -142,6 +247,10 @@ export const api = {
   // Search YouTube
   async searchYouTube(query: string): Promise<Track[]> {
     const response = await fetch(`${API_BASE}/api/youtube/search?q=${encodeURIComponent(query)}`)
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Search failed' }))
+      throw new Error(error.error || `YouTube search failed: ${response.status}`)
+    }
     return response.json()
   },
 

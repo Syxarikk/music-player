@@ -3,6 +3,7 @@
  */
 
 import { NavLink } from 'react-router-dom'
+import { useCallback, memo } from 'react'
 import {
   Home,
   Library,
@@ -14,20 +15,27 @@ import {
   ListMusic,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { useShallow } from 'zustand/react/shallow'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import ProfileSelector from './ProfileSelector'
 import './Sidebar.css'
 
-export default function Sidebar() {
-  const { getPlaylists, createPlaylist, getTracks, getFavorites } = useStore()
+function Sidebar() {
+  const { createPlaylist } = useStore()
 
-  const playlists = getPlaylists()
-  const tracks = getTracks()
-  const favorites = getFavorites()
+  // Use shallow comparison to prevent unnecessary re-renders
+  const { playlists, tracksCount, favoritesCount } = useStore(
+    useShallow((state) => ({
+      playlists: state.currentProfileId ? (state.playlists[state.currentProfileId] || []) : [],
+      tracksCount: state.currentProfileId ? (state.tracks[state.currentProfileId]?.length || 0) : 0,
+      favoritesCount: state.currentProfileId ? (state.favorites[state.currentProfileId]?.length || 0) : 0,
+    }))
+  )
 
-  const handleCreatePlaylist = () => {
+  const handleCreatePlaylist = useCallback(() => {
     const name = `Плейлист ${playlists.length + 1}`
     createPlaylist(name)
-  }
+  }, [playlists.length, createPlaylist])
 
   return (
     <aside className="sidebar">
@@ -59,15 +67,15 @@ export default function Sidebar() {
         <NavLink to="/library?tab=favorites" className="nav-item nav-item-small">
           <Heart size={18} className="icon-favorites" />
           <span>Избранное</span>
-          {favorites.length > 0 && (
-            <span className="nav-badge">{favorites.length}</span>
+          {favoritesCount > 0 && (
+            <span className="nav-badge">{favoritesCount}</span>
           )}
         </NavLink>
         <NavLink to="/library?tab=tracks" className="nav-item nav-item-small">
           <Music size={18} />
           <span>Все треки</span>
-          {tracks.length > 0 && (
-            <span className="nav-badge">{tracks.length}</span>
+          {tracksCount > 0 && (
+            <span className="nav-badge">{tracksCount}</span>
           )}
         </NavLink>
       </div>
@@ -94,25 +102,28 @@ export default function Sidebar() {
               </button>
             </div>
           ) : (
-            playlists.map((playlist) => (
-              <NavLink
-                key={playlist.id}
-                to={`/playlist/${playlist.id}`}
-                className="nav-item nav-item-small"
-              >
-                <div
-                  className="playlist-cover-mini"
-                  style={{
-                    background: playlist.coverArt
-                      ? `url(${playlist.coverArt})`
-                      : 'var(--accent-gradient)',
-                  }}
+            playlists.map((playlist) => {
+              const safeCoverArt = sanitizeImageUrl(playlist.coverArt)
+              return (
+                <NavLink
+                  key={playlist.id}
+                  to={`/playlist/${playlist.id}`}
+                  className="nav-item nav-item-small"
                 >
-                  {!playlist.coverArt && <Music size={12} />}
-                </div>
-                <span className="playlist-name">{playlist.name}</span>
-              </NavLink>
-            ))
+                  <div
+                    className="playlist-cover-mini"
+                    style={{
+                      background: safeCoverArt
+                        ? `url(${safeCoverArt})`
+                        : 'var(--accent-gradient)',
+                    }}
+                  >
+                    {!safeCoverArt && <Music size={12} />}
+                  </div>
+                  <span className="playlist-name">{playlist.name}</span>
+                </NavLink>
+              )
+            })
           )}
         </div>
       </div>
@@ -126,3 +137,6 @@ export default function Sidebar() {
     </aside>
   )
 }
+
+// Memoize to prevent unnecessary re-renders
+export default memo(Sidebar)

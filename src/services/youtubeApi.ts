@@ -1,15 +1,14 @@
 /**
  * YouTube API client for search and audio extraction
+ * NOTE: YouTube Data API calls are proxied through the server to protect API keys
  */
 
 import type { Track } from '../types'
-
-const API_KEY = 'AIzaSyD3X_ZolCBZMCI2F3sfcUxp3BCLTV53HG4'
-const API_BASE = 'https://www.googleapis.com/youtube/v3'
+import { isValidYouTubeId } from '../utils/sanitize'
 
 // Piped API instances for audio extraction (updated January 2025)
-// Multiple instances for reliability
-const PIPED_INSTANCES = [
+// Can be overridden via VITE_PIPED_INSTANCES env variable (comma-separated)
+const DEFAULT_PIPED_INSTANCES = [
   'https://pipedapi.kavin.rocks',
   'https://pipedapi-libre.kavin.rocks',
   'https://pipedapi.adminforge.de',
@@ -20,8 +19,13 @@ const PIPED_INSTANCES = [
   'https://pipedapi.nosebs.ru',
 ]
 
+const PIPED_INSTANCES: string[] = import.meta.env.VITE_PIPED_INSTANCES
+  ? (import.meta.env.VITE_PIPED_INSTANCES as string).split(',').map((s: string) => s.trim()).filter(Boolean)
+  : DEFAULT_PIPED_INSTANCES
+
 // Invidious API instances as fallback (updated January 2025)
-const INVIDIOUS_INSTANCES = [
+// Can be overridden via VITE_INVIDIOUS_INSTANCES env variable (comma-separated)
+const DEFAULT_INVIDIOUS_INSTANCES = [
   'https://inv.nadeko.net',
   'https://yewtu.be',
   'https://invidious.nerdvpn.de',
@@ -29,41 +33,9 @@ const INVIDIOUS_INSTANCES = [
   'https://vid.puffyan.us',
 ]
 
-/**
- * YouTube video search result
- */
-interface YouTubeSearchItem {
-  id: { videoId: string }
-  snippet: {
-    title: string
-    channelTitle: string
-    thumbnails: {
-      default: { url: string }
-      medium: { url: string }
-      high: { url: string }
-    }
-    publishedAt: string
-  }
-}
-
-/**
- * YouTube video details
- */
-interface YouTubeVideoDetails {
-  id: string
-  contentDetails: {
-    duration: string // ISO 8601 format: PT4M13S
-  }
-  snippet: {
-    title: string
-    channelTitle: string
-    thumbnails: {
-      default: { url: string }
-      medium: { url: string }
-      high: { url: string }
-    }
-  }
-}
+const INVIDIOUS_INSTANCES: string[] = import.meta.env.VITE_INVIDIOUS_INSTANCES
+  ? (import.meta.env.VITE_INVIDIOUS_INSTANCES as string).split(',').map((s: string) => s.trim()).filter(Boolean)
+  : DEFAULT_INVIDIOUS_INSTANCES
 
 /**
  * Piped video response
@@ -85,110 +57,101 @@ interface PipedVideo {
 }
 
 /**
- * Parse ISO 8601 duration to seconds
- * PT4M13S -> 253
- * PT1H2M3S -> 3723
+ * Get the server URL for YouTube API proxy
+ * Uses environment variable or falls back to relative path
  */
-function parseDuration(isoDuration: string): number {
-  const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
-  if (!match) return 0
+function getYouTubeServerUrl(): string {
+  const serverUrl = import.meta.env.VITE_YOUTUBE_SERVER_URL
+  if (serverUrl) return serverUrl
 
-  const hours = parseInt(match[1] || '0', 10)
-  const minutes = parseInt(match[2] || '0', 10)
-  const seconds = parseInt(match[3] || '0', 10)
-
-  return hours * 3600 + minutes * 60 + seconds
-}
-
-/**
- * Generate unique ID for YouTube track
- */
-function generateYouTubeTrackId(videoId: string): string {
-  return `youtube-${videoId}`
-}
-
-/**
- * Convert YouTube video to Track format
- */
-function youtubeToTrack(
-  video: YouTubeSearchItem,
-  details?: YouTubeVideoDetails
-): Track {
-  const videoId = video.id.videoId
-  const duration = details?.contentDetails?.duration
-    ? parseDuration(details.contentDetails.duration)
-    : 0
-
-  return {
-    id: generateYouTubeTrackId(videoId),
-    title: video.snippet.title,
-    artist: video.snippet.channelTitle,
-    album: 'YouTube',
-    duration,
-    path: `youtube://${videoId}`,
-    coverArt: video.snippet.thumbnails.high?.url || video.snippet.thumbnails.medium?.url,
-    source: 'youtube',
-    youtubeId: videoId,
+  // In Electron or same-origin web, use relative path
+  if (typeof window !== 'undefined') {
+    // Check if we have a stored server URL
+    const stored = localStorage.getItem('family-player-server-url')
+    if (stored) return stored
   }
+
+  // Default: same origin or localhost in dev
+  if (import.meta.env.DEV) {
+    return 'http://localhost:3000'
+  }
+
+  return ''
 }
 
 /**
- * Search videos on YouTube
+ * Search videos on YouTube via server proxy
+ * This protects the API key by keeping it server-side only
  */
 export async function searchYouTube(
   query: string,
   maxResults = 20
 ): Promise<Track[]> {
+  const serverUrl = getYouTubeServerUrl()
+
   try {
-    // Search for videos
-    const searchUrl = new URL(`${API_BASE}/search`)
-    searchUrl.searchParams.set('part', 'snippet')
-    searchUrl.searchParams.set('q', `${query} music`)
-    searchUrl.searchParams.set('type', 'video')
-    searchUrl.searchParams.set('videoCategoryId', '10') // Music category
+    const searchUrl = new URL(`${serverUrl}/api/youtube/search`)
+    searchUrl.searchParams.set('q', query)
     searchUrl.searchParams.set('maxResults', maxResults.toString())
-    searchUrl.searchParams.set('key', API_KEY)
 
-    const searchResponse = await fetch(searchUrl.toString())
+    const response = await fetch(searchUrl.toString(), {
+      signal: AbortSignal.timeout(15000),
+    })
 
-    if (!searchResponse.ok) {
-      const error = await searchResponse.json()
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Search failed' }))
       console.error('YouTube search error:', error)
-      throw new Error(error.error?.message || 'YouTube search failed')
+      throw new Error(error.error || 'YouTube search failed')
     }
 
-    const searchData = await searchResponse.json()
-    const items: YouTubeSearchItem[] = searchData.items || []
-
-    if (items.length === 0) {
-      return []
-    }
-
-    // Get video details for duration
-    const videoIds = items.map((item) => item.id.videoId).join(',')
-    const detailsUrl = new URL(`${API_BASE}/videos`)
-    detailsUrl.searchParams.set('part', 'contentDetails,snippet')
-    detailsUrl.searchParams.set('id', videoIds)
-    detailsUrl.searchParams.set('key', API_KEY)
-
-    const detailsResponse = await fetch(detailsUrl.toString())
-    const detailsData = await detailsResponse.json()
-    const detailsMap = new Map<string, YouTubeVideoDetails>()
-
-    if (detailsData.items) {
-      for (const detail of detailsData.items) {
-        detailsMap.set(detail.id, detail)
-      }
-    }
-
-    // Convert to tracks
-    return items.map((item) =>
-      youtubeToTrack(item, detailsMap.get(item.id.videoId))
-    )
+    const tracks: Track[] = await response.json()
+    return tracks
   } catch (error) {
     console.error('YouTube search error:', error)
-    throw error
+
+    // Fallback: try Piped API for search if server is unavailable
+    console.log('Trying Piped API fallback for search...')
+    return searchYouTubeViaPiped(query, maxResults)
   }
+}
+
+/**
+ * Fallback search via Piped API (no API key needed)
+ */
+async function searchYouTubeViaPiped(
+  query: string,
+  maxResults = 20
+): Promise<Track[]> {
+  for (const instance of PIPED_INSTANCES) {
+    try {
+      const url = `${instance}/search?q=${encodeURIComponent(query)}&filter=music_songs`
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(10000),
+      })
+
+      if (!response.ok) continue
+
+      const data = await response.json()
+      const items = data.items || []
+
+      return items.slice(0, maxResults).map((item: any) => ({
+        id: `youtube-${item.url?.replace('/watch?v=', '') || item.videoId}`,
+        title: item.title || 'Unknown',
+        artist: item.uploaderName || item.uploader || 'Unknown',
+        album: 'YouTube',
+        duration: item.duration || 0,
+        path: `youtube://${item.url?.replace('/watch?v=', '') || item.videoId}`,
+        coverArt: item.thumbnail || null,
+        source: 'youtube' as const,
+        youtubeId: item.url?.replace('/watch?v=', '') || item.videoId,
+      }))
+    } catch (error) {
+      console.warn(`Piped search failed for ${instance}:`, error)
+      continue
+    }
+  }
+
+  throw new Error('All search methods failed')
 }
 
 /**
@@ -210,105 +173,153 @@ interface InvidiousVideo {
 }
 
 /**
- * Get audio stream URL from Piped
+ * Get audio stream URL from Piped (parallel requests, returns first success)
+ * Each request has its own timeout to prevent premature cancellation
  */
 async function getAudioUrlFromPiped(videoId: string): Promise<string | null> {
-  for (const instance of PIPED_INSTANCES) {
-    try {
-      console.log('Trying Piped instance:', instance)
-      const url = `${instance}/streams/${videoId}`
+  const INDIVIDUAL_TIMEOUT = 10000 // 10 seconds per instance
+  const errors: { instance: string; error: string }[] = []
 
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(10000),
-      })
+  try {
+    // Create promise for each instance with individual timeout
+    const requests = PIPED_INSTANCES.map(async (instance): Promise<string> => {
+      const individualController = new AbortController()
+      const timeoutId = setTimeout(() => individualController.abort(), INDIVIDUAL_TIMEOUT)
 
-      if (!response.ok) {
-        console.warn(`${instance} returned status ${response.status}`)
-        continue
-      }
+      try {
+        const url = `${instance}/streams/${videoId}`
+        const response = await fetch(url, {
+          signal: individualController.signal,
+        })
 
-      const data: PipedVideo = await response.json()
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
 
-      // Check for error in response
-      if ((data as unknown as { error?: string }).error) {
-        console.warn(`${instance} error:`, (data as unknown as { error: string }).error)
-        continue
-      }
+        const data: PipedVideo = await response.json()
 
-      if (!data.audioStreams || data.audioStreams.length === 0) {
-        console.warn(`${instance} has no audio streams`)
-        continue
-      }
+        // Check for error in response
+        if ((data as unknown as { error?: string }).error) {
+          throw new Error((data as unknown as { error: string }).error)
+        }
 
-      // Find best audio format (prefer higher bitrate)
-      const audioStreams = data.audioStreams
-        .filter((s) => s.mimeType && s.mimeType.startsWith('audio/'))
-        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))
+        if (!data.audioStreams || data.audioStreams.length === 0) {
+          throw new Error('No audio streams')
+        }
 
-      if (audioStreams.length > 0) {
+        // Find best audio format (prefer higher bitrate)
+        const audioStreams = data.audioStreams
+          .filter((s) => s.mimeType && s.mimeType.startsWith('audio/'))
+          .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))
+
+        if (audioStreams.length === 0) {
+          throw new Error('No valid audio streams')
+        }
+
         console.log('Found audio URL from Piped', instance, '- bitrate:', audioStreams[0].bitrate)
         return audioStreams[0].url
+      } catch (err) {
+        // Log error for diagnostics
+        const errorMsg = err instanceof Error ? err.message : String(err)
+        errors.push({ instance, error: errorMsg })
+        throw err
+      } finally {
+        clearTimeout(timeoutId)
       }
-    } catch (error) {
-      console.warn(`Piped instance ${instance} failed:`, error)
-      continue
+    })
+
+    // Use Promise.any to get first successful result immediately
+    const result = await Promise.any(requests)
+    return result
+  } catch (error) {
+    // Promise.any throws AggregateError if all promises reject
+    // Log all errors for diagnostics
+    if (errors.length > 0) {
+      console.warn('Piped API errors:', errors.map(e => `${e.instance}: ${e.error}`).join(', '))
     }
+    return null
   }
-  return null
 }
 
 /**
- * Get audio stream URL from Invidious
+ * Get audio stream URL from Invidious (parallel requests, returns first success)
+ * Each request has its own timeout to prevent premature cancellation
  */
 async function getAudioUrlFromInvidious(videoId: string): Promise<string | null> {
-  for (const instance of INVIDIOUS_INSTANCES) {
-    try {
-      console.log('Trying Invidious instance:', instance)
-      const url = `${instance}/api/v1/videos/${videoId}`
+  const INDIVIDUAL_TIMEOUT = 10000 // 10 seconds per instance
+  const errors: { instance: string; error: string }[] = []
 
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(10000),
-      })
+  try {
+    // Create promise for each instance with individual timeout
+    const requests = INVIDIOUS_INSTANCES.map(async (instance): Promise<string> => {
+      const individualController = new AbortController()
+      const timeoutId = setTimeout(() => individualController.abort(), INDIVIDUAL_TIMEOUT)
 
-      if (!response.ok) {
-        console.warn(`${instance} returned status ${response.status}`)
-        continue
-      }
+      try {
+        const url = `${instance}/api/v1/videos/${videoId}`
+        const response = await fetch(url, {
+          signal: individualController.signal,
+        })
 
-      const data: InvidiousVideo = await response.json()
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
 
-      // Check for error in response
-      if ((data as unknown as { error?: string }).error) {
-        console.warn(`${instance} error:`, (data as unknown as { error: string }).error)
-        continue
-      }
+        const data: InvidiousVideo = await response.json()
 
-      if (!data.adaptiveFormats || data.adaptiveFormats.length === 0) {
-        console.warn(`${instance} has no adaptive formats`)
-        continue
-      }
+        // Check for error in response
+        if ((data as unknown as { error?: string }).error) {
+          throw new Error((data as unknown as { error: string }).error)
+        }
 
-      // Find best audio format
-      const audioFormats = data.adaptiveFormats
-        .filter((f) => f.type && f.type.startsWith('audio/'))
-        .sort((a, b) => parseInt(b.bitrate || '0') - parseInt(a.bitrate || '0'))
+        if (!data.adaptiveFormats || data.adaptiveFormats.length === 0) {
+          throw new Error('No adaptive formats')
+        }
 
-      if (audioFormats.length > 0) {
+        // Find best audio format
+        const audioFormats = data.adaptiveFormats
+          .filter((f) => f.type && f.type.startsWith('audio/'))
+          .sort((a, b) => parseInt(b.bitrate || '0') - parseInt(a.bitrate || '0'))
+
+        if (audioFormats.length === 0) {
+          throw new Error('No valid audio formats')
+        }
+
         console.log('Found audio URL from Invidious', instance)
         return audioFormats[0].url
+      } catch (err) {
+        // Log error for diagnostics
+        const errorMsg = err instanceof Error ? err.message : String(err)
+        errors.push({ instance, error: errorMsg })
+        throw err
+      } finally {
+        clearTimeout(timeoutId)
       }
-    } catch (error) {
-      console.warn(`Invidious instance ${instance} failed:`, error)
-      continue
+    })
+
+    // Use Promise.any to get first successful result immediately
+    const result = await Promise.any(requests)
+    return result
+  } catch (error) {
+    // Promise.any throws AggregateError if all promises reject
+    // Log all errors for diagnostics
+    if (errors.length > 0) {
+      console.warn('Invidious API errors:', errors.map(e => `${e.instance}: ${e.error}`).join(', '))
     }
+    return null
   }
-  return null
 }
 
 /**
  * Get audio stream URL - tries Piped then Invidious
  */
 export async function getAudioUrl(videoId: string): Promise<string | null> {
+  // Security: Validate video ID format
+  if (!isValidYouTubeId(videoId)) {
+    console.error('Invalid YouTube video ID format:', videoId)
+    return null
+  }
+
   console.log('Trying to get audio URL for video:', videoId)
 
   // Try Piped first
@@ -339,7 +350,7 @@ export async function getVideoInfo(videoId: string): Promise<Track | null> {
       const data: PipedVideo = await response.json()
 
       return {
-        id: generateYouTubeTrackId(videoId),
+        id: `youtube-${videoId}`,
         title: data.title,
         artist: data.uploader,
         album: 'YouTube',

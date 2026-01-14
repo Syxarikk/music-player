@@ -2,12 +2,26 @@
  * Settings Page - Simplified
  */
 
-import { useState } from 'react'
-import { FolderOpen, Trash2, Volume2, Music, RefreshCw, Youtube, Server, Monitor } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { FolderOpen, Trash2, Volume2, Music, RefreshCw, Youtube, Server, Monitor, AlertCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { generateId } from '../utils/id'
 import { isElectron } from '../services/apiClient'
 import './SettingsPage.css'
+
+/**
+ * Validate server URL format
+ */
+function isValidServerUrl(url: string): boolean {
+  if (!url) return true // Empty is valid (clears the setting)
+
+  try {
+    const parsed = new URL(url)
+    return ['http:', 'https:'].includes(parsed.protocol)
+  } catch {
+    return false
+  }
+}
 
 export default function SettingsPage() {
   const {
@@ -24,6 +38,21 @@ export default function SettingsPage() {
   const tracks = getTracks()
 
   const [isScanning, setIsScanning] = useState(false)
+  const [urlError, setUrlError] = useState<string | null>(null)
+
+  // Handle server URL change with validation
+  const handleServerUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+
+    if (value && !isValidServerUrl(value)) {
+      setUrlError('URL должен начинаться с http:// или https://')
+    } else {
+      setUrlError(null)
+    }
+
+    // Still update the value so user can see what they're typing
+    setAudioSettings({ youtubeServerUrl: value })
+  }, [setAudioSettings])
 
   const handleAddFolder = async () => {
     if (!window.electronAPI) return
@@ -41,16 +70,40 @@ export default function SettingsPage() {
     setIsScanning(true)
     try {
       const files = await window.electronAPI.scanMusicFolder(folderPath)
-      const newTracks = await Promise.all(
-        files.map(async (filePath) => {
-          const metadata = await window.electronAPI.getFileMetadata(filePath)
-          return {
-            ...metadata,
-            id: generateId(),
-          }
-        })
-      )
-      addTracks(newTracks)
+
+      // Process files in chunks to avoid blocking UI
+      const CHUNK_SIZE = 10
+      const allTracks = []
+
+      for (let i = 0; i < files.length; i += CHUNK_SIZE) {
+        const chunk = files.slice(i, i + CHUNK_SIZE)
+
+        // Process chunk in parallel
+        const chunkTracks = await Promise.all(
+          chunk.map(async (filePath) => {
+            try {
+              const metadata = await window.electronAPI.getFileMetadata(filePath)
+              return {
+                ...metadata,
+                id: generateId(),
+              }
+            } catch (err) {
+              console.warn('Failed to get metadata for:', filePath, err)
+              return null
+            }
+          })
+        )
+
+        // Filter out failed tracks and add to results
+        allTracks.push(...chunkTracks.filter(Boolean))
+
+        // Yield to UI thread between chunks (prevents freezing)
+        if (i + CHUNK_SIZE < files.length) {
+          await new Promise(resolve => setTimeout(resolve, 0))
+        }
+      }
+
+      addTracks(allTracks)
     } catch (error) {
       console.error('Error scanning folder:', error)
     } finally {
@@ -245,13 +298,20 @@ export default function SettingsPage() {
               <input
                 type="text"
                 value={audioSettings.youtubeServerUrl}
-                onChange={(e) => setAudioSettings({ youtubeServerUrl: e.target.value })}
-                placeholder="http://147.45.97.243:3000"
-                className="settings-text-input"
+                onChange={handleServerUrlChange}
+                placeholder="http://your-server:3000"
+                className={`settings-text-input ${urlError ? 'input-error' : ''}`}
               />
-              <span className="setting-input-hint">
-                Адрес сервера с yt-dlp для загрузки YouTube аудио
-              </span>
+              {urlError ? (
+                <span className="setting-input-error">
+                  <AlertCircle size={14} />
+                  {urlError}
+                </span>
+              ) : (
+                <span className="setting-input-hint">
+                  Адрес сервера с yt-dlp для загрузки YouTube аудио
+                </span>
+              )}
             </div>
           )}
         </div>

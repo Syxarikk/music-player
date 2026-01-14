@@ -1,5 +1,6 @@
 import { Play, Pause, Music } from 'lucide-react'
 import { useStore, Track } from '../store/useStore'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import './TrackCard.css'
 
 interface TrackCardProps {
@@ -12,6 +13,7 @@ export default function TrackCard({ track, showArtist = true }: TrackCardProps) 
   const tracks = getTracks()
   const isCurrentTrack = player.currentTrack?.id === track.id
   const isPlaying = isCurrentTrack && player.isPlaying
+  const safeCoverArt = sanitizeImageUrl(track.coverArt)
 
   const handleClick = () => {
     if (isCurrentTrack) {
@@ -24,8 +26,8 @@ export default function TrackCard({ track, showArtist = true }: TrackCardProps) 
   return (
     <div className={`track-card ${isCurrentTrack ? 'active' : ''}`} onClick={handleClick}>
       <div className="track-card-cover">
-        {track.coverArt ? (
-          <img src={track.coverArt} alt={track.album} />
+        {safeCoverArt ? (
+          <img src={safeCoverArt} alt={track.album} />
         ) : (
           <div className="track-card-cover-placeholder">
             <Music size={32} />

@@ -4,6 +4,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useShallow } from 'zustand/react/shallow'
 import type { Track, Playlist, RepeatMode, AudioSettings, Profile } from '../types'
 import { generateId } from '../utils/id'
 import {
@@ -136,7 +137,7 @@ export const useStore = create<AppState>()(
         crossfadeDuration: DEFAULT_CROSSFADE_DURATION,
         normalizeVolume: false,
         youtubeMode: 'server', // Default to server for better compatibility
-        youtubeServerUrl: 'http://147.45.97.243:3000', // Default server URL
+        youtubeServerUrl: import.meta.env.VITE_YOUTUBE_SERVER_URL || '', // From environment variable
       },
       player: {
         isPlaying: false,
@@ -503,7 +504,14 @@ export const useStore = create<AppState>()(
         if (repeatMode === 'one') {
           nextIndex = queueIndex
         } else if (isShuffled) {
-          nextIndex = Math.floor(Math.random() * queue.length)
+          // Avoid playing the same track when shuffled (unless only 1 track)
+          if (queue.length === 1) {
+            nextIndex = 0
+          } else {
+            do {
+              nextIndex = Math.floor(Math.random() * queue.length)
+            } while (nextIndex === queueIndex)
+          }
         } else {
           nextIndex = queueIndex + 1
           if (nextIndex >= queue.length) {
@@ -657,11 +665,25 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'music-player-storage',
+      version: 1, // Add version for future migrations
       partialize: (state) => ({
         profiles: state.profiles,
         currentProfileId: state.currentProfileId,
-        tracks: state.tracks,
-        playlists: state.playlists,
+        // Exclude coverArt from tracks to prevent localStorage overflow
+        // coverArt can be 50-200KB per track in base64
+        tracks: Object.fromEntries(
+          Object.entries(state.tracks).map(([profileId, profileTracks]) => [
+            profileId,
+            profileTracks.map(({ coverArt, ...rest }) => rest)
+          ])
+        ),
+        // Exclude coverArt from playlists as well
+        playlists: Object.fromEntries(
+          Object.entries(state.playlists).map(([profileId, profilePlaylists]) => [
+            profileId,
+            profilePlaylists.map(({ coverArt, ...rest }) => rest)
+          ])
+        ),
         favorites: state.favorites,
         recentlyPlayed: state.recentlyPlayed,
         musicFolders: state.musicFolders,
@@ -672,6 +694,88 @@ export const useStore = create<AppState>()(
           repeatMode: state.player.repeatMode,
         },
       }),
+      // Merge persisted state with initial state to ensure all fields exist
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<AppState> | undefined
+        if (!persisted) return currentState
+
+        return {
+          ...currentState,
+          ...persisted,
+          // Ensure player has all required fields by merging with initial state
+          player: {
+            ...currentState.player, // Initial/default values
+            ...(persisted.player || {}), // Persisted values (volume, shuffle, repeat)
+          },
+          // Ensure audioSettings has all required fields
+          audioSettings: {
+            ...currentState.audioSettings,
+            ...(persisted.audioSettings || {}),
+          },
+        }
+      },
+      // Handle storage errors gracefully
+      onRehydrateStorage: () => (_state, error) => {
+        if (error) {
+          console.error('Failed to rehydrate storage:', error)
+          // Clear corrupted storage
+          try {
+            localStorage.removeItem('music-player-storage')
+          } catch {}
+        }
+      },
     }
   )
 )
+
+// ============ Optimized Selectors ============
+
+/**
+ * Optimized hook to get tracks for current profile
+ * Uses shallow comparison to prevent unnecessary re-renders
+ */
+export function useTracksSelector(): Track[] {
+  return useStore(
+    useShallow((state) => {
+      const profileId = state.currentProfileId
+      if (!profileId) return []
+      return state.tracks[profileId] || []
+    })
+  )
+}
+
+/**
+ * Optimized hook to get player state
+ * Only re-renders when specific player fields change
+ */
+export function usePlayerSelector() {
+  return useStore(
+    useShallow((state) => state.player)
+  )
+}
+
+/**
+ * Optimized hook to get playlists for current profile
+ */
+export function usePlaylistsSelector(): Playlist[] {
+  return useStore(
+    useShallow((state) => {
+      const profileId = state.currentProfileId
+      if (!profileId) return []
+      return state.playlists[profileId] || []
+    })
+  )
+}
+
+/**
+ * Optimized hook to get favorites for current profile
+ */
+export function useFavoritesSelector(): string[] {
+  return useStore(
+    useShallow((state) => {
+      const profileId = state.currentProfileId
+      if (!profileId) return []
+      return state.favorites[profileId] || []
+    })
+  )
+}

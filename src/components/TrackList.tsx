@@ -8,6 +8,7 @@ import { Play, Pause, Heart, MoreHorizontal, Clock, Music } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { Track } from '../types'
 import { formatTime } from '../utils/audio'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import TrackContextMenu from './TrackContextMenu'
 import './TrackList.css'
 
@@ -74,6 +75,7 @@ export default function TrackList({ tracks, showIndex = true }: TrackListProps) 
           const isCurrentTrack = player.currentTrack?.id === track.id
           const isPlaying = isCurrentTrack && player.isPlaying
           const isFav = isFavorite(track.id)
+          const safeCoverArt = sanitizeImageUrl(track.coverArt)
 
           return (
             <div
@@ -96,8 +98,8 @@ export default function TrackList({ tracks, showIndex = true }: TrackListProps) 
 
               <div className="track-col-title">
                 <div className="track-cover-small">
-                  {track.coverArt ? (
-                    <img src={track.coverArt} alt={track.album} />
+                  {safeCoverArt ? (
+                    <img src={safeCoverArt} alt={track.album} />
                   ) : (
                     <Music size={16} />
                   )}
