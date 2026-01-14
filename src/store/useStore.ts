@@ -4,7 +4,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { useShallow } from 'zustand/shallow'
+import { shallow } from 'zustand/shallow'
 import type { Track, Playlist, RepeatMode, AudioSettings, Profile } from '../types'
 import { generateId } from '../utils/id'
 import { sanitizeImageUrl } from '../utils/sanitize'
@@ -885,11 +885,12 @@ const EMPTY_FAVORITES: string[] = []
  */
 export function useTracksSelector(): Track[] {
   return useStore(
-    useShallow((state) => {
+    (state) => {
       const profileId = state.currentProfileId
       if (!profileId) return EMPTY_TRACKS
       return state.tracks[profileId] || EMPTY_TRACKS
-    })
+    },
+    shallow
   )
 }
 
@@ -899,7 +900,8 @@ export function useTracksSelector(): Track[] {
  */
 export function usePlayerSelector() {
   return useStore(
-    useShallow((state) => state.player)
+    (state) => state.player,
+    shallow
   )
 }
 
@@ -908,11 +910,12 @@ export function usePlayerSelector() {
  */
 export function usePlaylistsSelector(): Playlist[] {
   return useStore(
-    useShallow((state) => {
+    (state) => {
       const profileId = state.currentProfileId
       if (!profileId) return EMPTY_PLAYLISTS
       return state.playlists[profileId] || EMPTY_PLAYLISTS
-    })
+    },
+    shallow
   )
 }
 
@@ -921,10 +924,11 @@ export function usePlaylistsSelector(): Playlist[] {
  */
 export function useFavoritesSelector(): string[] {
   return useStore(
-    useShallow((state) => {
+    (state) => {
       const profileId = state.currentProfileId
       if (!profileId) return EMPTY_FAVORITES
       return state.favorites[profileId] || EMPTY_FAVORITES
-    })
+    },
+    shallow
   )
 }
