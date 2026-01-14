@@ -6,21 +6,16 @@ import { useState, useCallback } from 'react'
 import { FolderOpen, Trash2, Volume2, Music, RefreshCw, Youtube, Server, Monitor, AlertCircle } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { generateId } from '../utils/id'
-import { isElectron } from '../services/apiClient'
+import { isElectron, isValidServerUrl } from '../services/apiClient'
 import './SettingsPage.css'
 
 /**
- * Validate server URL format
+ * Validate server URL format with SSRF protection
+ * Uses comprehensive validation from apiClient
  */
-function isValidServerUrl(url: string): boolean {
+function validateServerUrl(url: string): boolean {
   if (!url) return true // Empty is valid (clears the setting)
-
-  try {
-    const parsed = new URL(url)
-    return ['http:', 'https:'].includes(parsed.protocol)
-  } catch {
-    return false
-  }
+  return isValidServerUrl(url)
 }
 
 export default function SettingsPage() {
@@ -40,12 +35,12 @@ export default function SettingsPage() {
   const [isScanning, setIsScanning] = useState(false)
   const [urlError, setUrlError] = useState<string | null>(null)
 
-  // Handle server URL change with validation
+  // Handle server URL change with validation (includes SSRF protection)
   const handleServerUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
 
-    if (value && !isValidServerUrl(value)) {
-      setUrlError('URL должен начинаться с http:// или https://')
+    if (value && !validateServerUrl(value)) {
+      setUrlError('Недопустимый URL. Разрешены только http/https к локальной сети.')
     } else {
       setUrlError(null)
     }

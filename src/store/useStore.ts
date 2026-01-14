@@ -4,15 +4,115 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { useShallow } from 'zustand/react/shallow'
+import { useShallow } from 'zustand/shallow'
 import type { Track, Playlist, RepeatMode, AudioSettings, Profile } from '../types'
 import { generateId } from '../utils/id'
+import { sanitizeImageUrl } from '../utils/sanitize'
 import {
   DEFAULT_VOLUME,
   DEFAULT_CROSSFADE_DURATION,
   MAX_RECENTLY_PLAYED,
   RESTART_THRESHOLD_SECONDS,
 } from '../constants/player'
+
+// Storage limits to prevent localStorage overflow (quota ~5MB)
+const MAX_TRACKS_PER_PROFILE = 5000
+const MAX_PLAYLISTS_PER_PROFILE = 100
+const MAX_STORAGE_SIZE_KB = 4000 // Leave 1MB buffer
+
+/**
+ * Sanitize track coverArt to prevent XSS attacks from localStorage
+ */
+function sanitizeTrack(track: Track): Track {
+  return {
+    ...track,
+    coverArt: sanitizeImageUrl(track.coverArt) || undefined,
+  }
+}
+
+/**
+ * Sanitize all tracks in storage to prevent XSS
+ */
+function sanitizeTracksStorage(
+  tracks: Record<string, Track[]>
+): Record<string, Track[]> {
+  const result: Record<string, Track[]> = {}
+  for (const [profileId, profileTracks] of Object.entries(tracks)) {
+    result[profileId] = profileTracks.map(sanitizeTrack)
+  }
+  return result
+}
+
+/**
+ * Sanitize playlist coverArt
+ */
+function sanitizePlaylist(playlist: Playlist): Playlist {
+  return {
+    ...playlist,
+    coverArt: sanitizeImageUrl(playlist.coverArt) || undefined,
+  }
+}
+
+/**
+ * Sanitize all playlists in storage
+ */
+function sanitizePlaylistsStorage(
+  playlists: Record<string, Playlist[]>
+): Record<string, Playlist[]> {
+  const result: Record<string, Playlist[]> = {}
+  for (const [profileId, profilePlaylists] of Object.entries(playlists)) {
+    result[profileId] = profilePlaylists.map(sanitizePlaylist)
+  }
+  return result
+}
+
+/**
+ * Safe localStorage wrapper with size checking
+ */
+const safeStorage = {
+  getItem: (name: string): string | null => {
+    try {
+      return localStorage.getItem(name)
+    } catch (e) {
+      console.error('localStorage.getItem error:', e)
+      return null
+    }
+  },
+  setItem: (name: string, value: string): void => {
+    try {
+      // Check size before saving
+      const sizeKB = new Blob([value]).size / 1024
+      if (sizeKB > MAX_STORAGE_SIZE_KB) {
+        console.warn(`Storage size (${Math.round(sizeKB)}KB) exceeds limit. Data may be truncated.`)
+        // Still try to save - browser will throw if over quota
+      }
+      localStorage.setItem(name, value)
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+        console.error('localStorage quota exceeded. Clearing old backups...')
+        // Clear backups first
+        localStorage.removeItem('music-player-storage-backup-3')
+        localStorage.removeItem('music-player-storage-backup-2')
+        localStorage.removeItem('music-player-storage-backup-1')
+        // Try again
+        try {
+          localStorage.setItem(name, value)
+        } catch {
+          console.error('Still cannot save after clearing backups')
+        }
+      } else {
+        console.error('localStorage.setItem error:', e)
+      }
+    }
+  },
+  removeItem: (name: string): void => {
+    try {
+      localStorage.removeItem(name)
+    } catch (e) {
+      console.error('localStorage.removeItem error:', e)
+    }
+  },
+}
 
 // Re-export types for backward compatibility
 export type { Track, Playlist, AudioSettings, Profile }
@@ -321,6 +421,8 @@ export const useStore = create<AppState>()(
       createPlaylist: (name, description) => {
         const profileId = get().currentProfileId
         if (!profileId) {
+          console.error('Cannot create playlist: no active profile')
+          // Return a clearly invalid playlist that callers can check
           return { id: '', name: '', tracks: [], createdAt: 0 }
         }
 
@@ -334,6 +436,11 @@ export const useStore = create<AppState>()(
 
         set((state) => {
           const profilePlaylists = state.playlists[profileId] || []
+          // Check if we've reached the limit
+          if (profilePlaylists.length >= MAX_PLAYLISTS_PER_PROFILE) {
+            console.warn('Maximum playlists limit reached for profile:', profileId)
+            return state
+          }
           return {
             playlists: {
               ...state.playlists,
@@ -507,10 +614,17 @@ export const useStore = create<AppState>()(
           // Avoid playing the same track when shuffled (unless only 1 track)
           if (queue.length === 1) {
             nextIndex = 0
+          } else if (queue.length === 2) {
+            // Optimization for 2 tracks: just pick the other one
+            nextIndex = queueIndex === 0 ? 1 : 0
           } else {
+            // For 3+ tracks, use limited retries to prevent potential infinite loop
+            let attempts = 0
+            const maxAttempts = 10
             do {
               nextIndex = Math.floor(Math.random() * queue.length)
-            } while (nextIndex === queueIndex)
+              attempts++
+            } while (nextIndex === queueIndex && attempts < maxAttempts)
           }
         } else {
           nextIndex = queueIndex + 1
@@ -666,22 +780,31 @@ export const useStore = create<AppState>()(
     {
       name: 'music-player-storage',
       version: 1, // Add version for future migrations
+      storage: {
+        getItem: safeStorage.getItem,
+        setItem: safeStorage.setItem,
+        removeItem: safeStorage.removeItem,
+      },
       partialize: (state) => ({
         profiles: state.profiles,
         currentProfileId: state.currentProfileId,
-        // Exclude coverArt from tracks to prevent localStorage overflow
+        // Exclude coverArt from tracks and limit count to prevent localStorage overflow
         // coverArt can be 50-200KB per track in base64
         tracks: Object.fromEntries(
           Object.entries(state.tracks).map(([profileId, profileTracks]) => [
             profileId,
-            profileTracks.map(({ coverArt, ...rest }) => rest)
+            profileTracks
+              .slice(0, MAX_TRACKS_PER_PROFILE) // Limit tracks per profile
+              .map(({ coverArt, ...rest }) => rest)
           ])
         ),
-        // Exclude coverArt from playlists as well
+        // Exclude coverArt from playlists and limit count
         playlists: Object.fromEntries(
           Object.entries(state.playlists).map(([profileId, profilePlaylists]) => [
             profileId,
-            profilePlaylists.map(({ coverArt, ...rest }) => rest)
+            profilePlaylists
+              .slice(0, MAX_PLAYLISTS_PER_PROFILE) // Limit playlists per profile
+              .map(({ coverArt, ...rest }) => rest)
           ])
         ),
         favorites: state.favorites,
@@ -695,6 +818,7 @@ export const useStore = create<AppState>()(
         },
       }),
       // Merge persisted state with initial state to ensure all fields exist
+      // Also sanitizes coverArt URLs to prevent XSS from localStorage
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<AppState> | undefined
         if (!persisted) return currentState
@@ -702,6 +826,14 @@ export const useStore = create<AppState>()(
         return {
           ...currentState,
           ...persisted,
+          // Sanitize tracks to prevent XSS via coverArt URLs
+          tracks: persisted.tracks
+            ? sanitizeTracksStorage(persisted.tracks)
+            : currentState.tracks,
+          // Sanitize playlists to prevent XSS via coverArt URLs
+          playlists: persisted.playlists
+            ? sanitizePlaylistsStorage(persisted.playlists)
+            : currentState.playlists,
           // Ensure player has all required fields by merging with initial state
           player: {
             ...currentState.player, // Initial/default values
@@ -718,10 +850,22 @@ export const useStore = create<AppState>()(
       onRehydrateStorage: () => (_state, error) => {
         if (error) {
           console.error('Failed to rehydrate storage:', error)
-          // Clear corrupted storage
+          // Backup corrupted storage before clearing
           try {
+            const backup = localStorage.getItem('music-player-storage')
+            if (backup) {
+              // Keep up to 3 backups
+              localStorage.setItem('music-player-storage-backup-3',
+                localStorage.getItem('music-player-storage-backup-2') || '')
+              localStorage.setItem('music-player-storage-backup-2',
+                localStorage.getItem('music-player-storage-backup-1') || '')
+              localStorage.setItem('music-player-storage-backup-1', backup)
+              console.log('Corrupted storage backed up to music-player-storage-backup-1')
+            }
             localStorage.removeItem('music-player-storage')
-          } catch {}
+          } catch (backupError) {
+            console.error('Failed to backup storage:', backupError)
+          }
         }
       },
     }
@@ -729,6 +873,11 @@ export const useStore = create<AppState>()(
 )
 
 // ============ Optimized Selectors ============
+
+// Stable empty array references to prevent unnecessary re-renders
+const EMPTY_TRACKS: Track[] = []
+const EMPTY_PLAYLISTS: Playlist[] = []
+const EMPTY_FAVORITES: string[] = []
 
 /**
  * Optimized hook to get tracks for current profile
@@ -738,8 +887,8 @@ export function useTracksSelector(): Track[] {
   return useStore(
     useShallow((state) => {
       const profileId = state.currentProfileId
-      if (!profileId) return []
-      return state.tracks[profileId] || []
+      if (!profileId) return EMPTY_TRACKS
+      return state.tracks[profileId] || EMPTY_TRACKS
     })
   )
 }
@@ -761,8 +910,8 @@ export function usePlaylistsSelector(): Playlist[] {
   return useStore(
     useShallow((state) => {
       const profileId = state.currentProfileId
-      if (!profileId) return []
-      return state.playlists[profileId] || []
+      if (!profileId) return EMPTY_PLAYLISTS
+      return state.playlists[profileId] || EMPTY_PLAYLISTS
     })
   )
 }
@@ -774,8 +923,8 @@ export function useFavoritesSelector(): string[] {
   return useStore(
     useShallow((state) => {
       const profileId = state.currentProfileId
-      if (!profileId) return []
-      return state.favorites[profileId] || []
+      if (!profileId) return EMPTY_FAVORITES
+      return state.favorites[profileId] || EMPTY_FAVORITES
     })
   )
 }

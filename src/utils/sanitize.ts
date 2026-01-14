@@ -2,6 +2,11 @@
  * Security utilities for sanitizing user input
  */
 
+import { isValidVideoId } from '../shared/instances'
+
+// Re-export for backward compatibility
+export { isValidVideoId as isValidYouTubeId }
+
 /**
  * Sanitize image URL to prevent XSS attacks
  * Only allows safe protocols: https, http, data:image/, local-audio://
@@ -35,14 +40,6 @@ export function sanitizeImageUrl(url: string | null | undefined): string | null 
   return null
 }
 
-/**
- * Validate YouTube video ID format
- * YouTube IDs are exactly 11 characters: alphanumeric, dash, underscore
- */
-export function isValidYouTubeId(videoId: string | null | undefined): boolean {
-  if (!videoId) return false
-  return /^[a-zA-Z0-9_-]{11}$/.test(videoId)
-}
 
 /**
  * Sanitize file path to prevent path traversal attacks

@@ -489,7 +489,58 @@ const denoPath = path.join(os.homedir(), '.deno', 'bin', denoExecutable)
 const ytCacheDir = path.join(os.tmpdir(), 'family-player-yt-cache')
 
 // Mutex for YouTube downloads to prevent parallel downloads of same video
+// Uses a lock map to ensure atomic check-and-set operations
 const activeDownloads = new Map<string, Promise<string | null>>()
+const downloadLocks = new Map<string, { resolve: () => void; promise: Promise<void> }>()
+
+// Maximum time to wait for a download lock (prevents deadlock)
+const DOWNLOAD_LOCK_TIMEOUT_MS = 180000 // 3 minutes
+
+/**
+ * Acquire a lock for a specific video ID
+ * Ensures only one download runs at a time per video
+ * Includes timeout to prevent deadlocks
+ */
+async function acquireDownloadLock(videoId: string): Promise<() => void> {
+  const startTime = Date.now()
+
+  // Wait for any existing lock to be released with timeout
+  while (downloadLocks.has(videoId)) {
+    // Check for timeout to prevent deadlock
+    if (Date.now() - startTime > DOWNLOAD_LOCK_TIMEOUT_MS) {
+      console.warn('Download lock timeout for video:', videoId)
+      // Force release stale lock
+      const staleLock = downloadLocks.get(videoId)
+      if (staleLock) {
+        downloadLocks.delete(videoId)
+        staleLock.resolve()
+      }
+      break
+    }
+
+    // Wait with a timeout to allow periodic checks
+    await Promise.race([
+      downloadLocks.get(videoId)!.promise,
+      new Promise(resolve => setTimeout(resolve, 5000)) // Check every 5 seconds
+    ])
+  }
+
+  // Create new lock
+  let lockResolve: () => void
+  const lockPromise = new Promise<void>((resolve) => {
+    lockResolve = resolve
+  })
+  downloadLocks.set(videoId, { resolve: lockResolve!, promise: lockPromise })
+
+  // Return release function
+  return () => {
+    const lock = downloadLocks.get(videoId)
+    if (lock) {
+      downloadLocks.delete(videoId)
+      lock.resolve()
+    }
+  }
+}
 
 // Ensure cache directory exists (with proper error handling)
 async function ensureCacheDir(): Promise<void> {
@@ -583,15 +634,20 @@ ipcMain.handle('get-youtube-audio-url', async (_, videoId: string) => {
     return null
   }
 
-  // Check if download is already in progress for this video (mutex)
-  const existingDownload = activeDownloads.get(videoId)
-  if (existingDownload) {
-    console.log('Waiting for existing download:', videoId)
-    return existingDownload
-  }
+  // Acquire lock to prevent race conditions
+  const releaseLock = await acquireDownloadLock(videoId)
 
-  // Create download promise and store in mutex map
-  const downloadPromise = (async (): Promise<string | null> => {
+  try {
+    // Check if download completed while waiting for lock (result already cached)
+    const existingDownload = activeDownloads.get(videoId)
+    if (existingDownload) {
+      console.log('Using result from concurrent download:', videoId)
+      releaseLock()
+      return existingDownload
+    }
+
+    // Create download promise and store in map
+    const downloadPromise = (async (): Promise<string | null> => {
     try {
       const url = `https://www.youtube.com/watch?v=${videoId}`
       console.log('Downloading audio for:', url)
@@ -717,10 +773,17 @@ ipcMain.handle('get-youtube-audio-url', async (_, videoId: string) => {
     }
   })()
 
-  // Store in mutex map
-  activeDownloads.set(videoId, downloadPromise)
+    // Store in mutex map
+    activeDownloads.set(videoId, downloadPromise)
 
-  return downloadPromise
+    // Release lock after setting up download (others can now check cache)
+    releaseLock()
+
+    return downloadPromise
+  } catch (error) {
+    releaseLock()
+    throw error
+  }
 })
 
 // ============ Media Server ============

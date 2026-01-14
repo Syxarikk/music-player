@@ -35,7 +35,8 @@ const config: CapacitorConfig = {
 
   android: {
     backgroundColor: '#0a0a0a',
-    allowMixedContent: true,
+    // SECURITY: Mixed content disabled - use HTTPS only
+    allowMixedContent: false,
   },
 
   plugins: {

@@ -88,9 +88,10 @@ let API_BASE = getApiBase()
 /**
  * Validate URL format for security
  * Only allows http/https protocols and valid URL structure
- * Includes SSRF protection - blocks dangerous internal ports
+ * Includes comprehensive SSRF protection
+ * Exported for use in other components (e.g., SettingsPage)
  */
-function isValidServerUrl(url: string): boolean {
+export function isValidServerUrl(url: string): boolean {
   if (!url || typeof url !== 'string') return false
 
   try {
@@ -114,10 +115,57 @@ function isValidServerUrl(url: string): boolean {
       return false
     }
 
-    // Block metadata service IPs (cloud environments)
     const hostname = parsed.hostname.toLowerCase()
-    if (hostname === '169.254.169.254' || hostname === 'metadata.google.internal') {
-      console.warn('Blocked cloud metadata service URL')
+
+    // Block all private/internal IP ranges for SSRF protection
+    const blockedPatterns = [
+      /^127\./,                          // Loopback (127.0.0.0/8)
+      /^0\./,                            // Current network (0.0.0.0/8)
+      /^::1$/,                           // IPv6 loopback
+      /^fe80:/i,                         // IPv6 link-local
+      /^fc00:/i,                         // IPv6 unique local
+      /^fd00:/i,                         // IPv6 unique local
+      /^169\.254\./,                     // Link-local (except allowed below)
+      /^224\./,                          // Multicast
+      /^255\./,                          // Broadcast
+    ]
+
+    // Check blocked patterns
+    for (const pattern of blockedPatterns) {
+      if (pattern.test(hostname)) {
+        console.warn('Blocked internal/special IP:', hostname)
+        return false
+      }
+    }
+
+    // Block cloud metadata service IPs and hostnames
+    const blockedHosts = [
+      '169.254.169.254',                 // AWS/GCP/Azure metadata
+      'metadata.google.internal',        // GCP metadata
+      'metadata.google.com',             // GCP metadata
+      '100.100.100.200',                 // Alibaba Cloud metadata
+      '192.0.0.192',                     // Oracle Cloud metadata
+    ]
+
+    if (blockedHosts.includes(hostname)) {
+      console.warn('Blocked cloud metadata service URL:', hostname)
+      return false
+    }
+
+    // Allow localhost and private networks (for local server access)
+    // 192.168.x.x, 10.x.x.x, 172.16-31.x.x are allowed as they're typical LAN
+    const allowedPrivatePatterns = [
+      /^localhost$/,
+      /^192\.168\.\d+\.\d+$/,
+      /^10\.\d+\.\d+\.\d+$/,
+      /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
+    ]
+
+    const isAllowedPrivate = allowedPrivatePatterns.some(p => p.test(hostname))
+    const isPublicDomain = !hostname.match(/^\d+\.\d+\.\d+\.\d+$/) && hostname.includes('.')
+
+    if (!isAllowedPrivate && !isPublicDomain) {
+      console.warn('Blocked non-public URL:', hostname)
       return false
     }
 

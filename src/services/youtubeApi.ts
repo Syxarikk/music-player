@@ -5,37 +5,15 @@
 
 import type { Track } from '../types'
 import { isValidYouTubeId } from '../utils/sanitize'
+import {
+  getPipedInstances,
+  getInvidiousInstances,
+  isValidVideoId as sharedIsValidVideoId,
+} from '../shared/instances'
 
-// Piped API instances for audio extraction (updated January 2025)
-// Can be overridden via VITE_PIPED_INSTANCES env variable (comma-separated)
-const DEFAULT_PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
-  'https://pipedapi-libre.kavin.rocks',
-  'https://pipedapi.adminforge.de',
-  'https://api.piped.yt',
-  'https://pipedapi.leptons.xyz',
-  'https://piped-api.privacy.com.de',
-  'https://pipedapi.drgns.space',
-  'https://pipedapi.nosebs.ru',
-]
-
-const PIPED_INSTANCES: string[] = import.meta.env.VITE_PIPED_INSTANCES
-  ? (import.meta.env.VITE_PIPED_INSTANCES as string).split(',').map((s: string) => s.trim()).filter(Boolean)
-  : DEFAULT_PIPED_INSTANCES
-
-// Invidious API instances as fallback (updated January 2025)
-// Can be overridden via VITE_INVIDIOUS_INSTANCES env variable (comma-separated)
-const DEFAULT_INVIDIOUS_INSTANCES = [
-  'https://inv.nadeko.net',
-  'https://yewtu.be',
-  'https://invidious.nerdvpn.de',
-  'https://invidious.private.coffee',
-  'https://vid.puffyan.us',
-]
-
-const INVIDIOUS_INSTANCES: string[] = import.meta.env.VITE_INVIDIOUS_INSTANCES
-  ? (import.meta.env.VITE_INVIDIOUS_INSTANCES as string).split(',').map((s: string) => s.trim()).filter(Boolean)
-  : DEFAULT_INVIDIOUS_INSTANCES
+// Get instances from shared config (with env override support)
+const PIPED_INSTANCES = getPipedInstances()
+const INVIDIOUS_INSTANCES = getInvidiousInstances()
 
 /**
  * Piped video response

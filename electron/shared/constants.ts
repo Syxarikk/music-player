@@ -156,6 +156,43 @@ export function isPathSafe(filePath: string): boolean {
 }
 
 /**
+ * Check if path is a symlink (async version for main process)
+ * Returns true if path is a symlink, false otherwise
+ */
+export async function isSymlink(filePath: string): Promise<boolean> {
+  try {
+    const fs = await import('fs/promises')
+    const stats = await fs.lstat(filePath)
+    return stats.isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Validate path is safe and not a symlink (comprehensive check)
+ * Use this for file access validation in main process
+ */
+export async function validateFileAccess(filePath: string): Promise<{ valid: boolean; error?: string }> {
+  // Basic path safety checks
+  if (!isPathSafe(filePath)) {
+    return { valid: false, error: 'Invalid path format' }
+  }
+
+  // Check if path is within allowed directories
+  if (!isPathAllowed(filePath)) {
+    return { valid: false, error: 'Access denied to this directory' }
+  }
+
+  // Check for symlinks (prevents symlink attacks)
+  if (await isSymlink(filePath)) {
+    return { valid: false, error: 'Symlinks not allowed' }
+  }
+
+  return { valid: true }
+}
+
+/**
  * Check if path is within allowed directories
  */
 export function isPathAllowed(filePath: string): boolean {

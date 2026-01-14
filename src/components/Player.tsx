@@ -131,6 +131,7 @@ export default function Player() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const isLoadingRef = useRef(false) // Mutex to prevent concurrent loads
   const activeFadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null) // Crossfade timer
+  const isMountedRef = useRef(true) // Track component mount state for cleanup
   const actualVolume = isMuted ? 0 : volume
 
   // Refs for event handlers to avoid recreating listeners
@@ -193,6 +194,14 @@ export default function Player() {
   useEffect(() => {
     isPlayingRef.current = isPlaying
   }, [isPlaying])
+
+  // Track mount state for safe cleanup in async operations
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -402,12 +411,18 @@ export default function Player() {
     loadAudio()
 
     return () => {
-      // Abort loading on cleanup
+      // Abort loading on cleanup first to prevent race conditions
       abortController.abort()
       isLoadingRef.current = false
+
+      // Safely cleanup sound with try-catch to prevent errors
       if (!isCrossfading.current && soundRef.current) {
-        soundRef.current.stop()
-        soundRef.current.unload()
+        try {
+          soundRef.current.stop()
+          soundRef.current.unload()
+        } catch (e) {
+          console.warn('Error during sound cleanup:', e)
+        }
         soundRef.current = null
       }
     }
@@ -457,9 +472,17 @@ export default function Player() {
             isCrossfading.current = true
 
             const prepareCrossfade = async () => {
+              // Safety check: abort if component unmounted during async operation
+              if (!isMountedRef.current) {
+                isCrossfading.current = false
+                return
+              }
+
               try {
                 const nextUrl = await getAudioUrl(nextTrackData, audioSettings)
-                if (!nextUrl) {
+
+                // Double-check mount state after async operation
+                if (!isMountedRef.current || !nextUrl) {
                   isCrossfading.current = false
                   return
                 }
@@ -469,6 +492,14 @@ export default function Player() {
                   html5: true,
                   volume: 0,
                   onload: () => {
+                    // Safety: verify component is still mounted and crossfade is still active
+                    if (!isMountedRef.current) {
+                      nextSoundRef.current?.unload()
+                      nextSoundRef.current = null
+                      isCrossfading.current = false
+                      return
+                    }
+
                     if (nextSoundRef.current && isCrossfading.current) {
                       nextSoundRef.current.play()
                       nextTrack()
@@ -486,6 +517,15 @@ export default function Player() {
                       }
 
                       activeFadeTimerRef.current = setInterval(() => {
+                        // Safety check: stop if component unmounted
+                        if (!isMountedRef.current) {
+                          if (activeFadeTimerRef.current) {
+                            clearInterval(activeFadeTimerRef.current)
+                            activeFadeTimerRef.current = null
+                          }
+                          return
+                        }
+
                         step++
                         const progress = step / fadeSteps
 

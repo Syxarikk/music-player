@@ -221,7 +221,8 @@ export function createMediaServer(config: ServerConfig) {
   if (!config.authToken) {
     const { generateAuthToken } = require('./shared/constants')
     config.authToken = generateAuthToken()
-    console.log('⚠️  Auto-generated auth token (save this for mobile access):', config.authToken)
+    // SECURITY: Don't log the token - it can be retrieved via settings UI
+    console.log('Auth token auto-generated. Use settings UI to view token for mobile access.')
   }
 
   app.use('/api', (req: Request, res: Response, next: NextFunction) => {
@@ -719,6 +720,7 @@ export function createMediaServer(config: ServerConfig) {
       typeof track.id === 'string' &&
       typeof track.title === 'string' &&
       typeof track.artist === 'string' &&
+      typeof track.album === 'string' && // Added missing album check
       typeof track.path === 'string' &&
       (track.duration === undefined || typeof track.duration === 'number') &&
       (track.coverArt === undefined || track.coverArt === null || typeof track.coverArt === 'string')
