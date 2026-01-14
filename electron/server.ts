@@ -345,7 +345,9 @@ export function createMediaServer(config: ServerConfig) {
 
           if (metadata.common.picture && metadata.common.picture.length > 0) {
             const picture = metadata.common.picture[0]
-            coverArt = `data:${picture.format};base64,${picture.data.toString('base64')}`
+            // Convert Uint8Array to base64 (music-metadata v10+ uses Uint8Array)
+            const base64Data = Buffer.from(picture.data).toString('base64')
+            coverArt = `data:${picture.format};base64,${base64Data}`
           }
 
           return {
