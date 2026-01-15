@@ -1,45 +1,26 @@
-import { useMemo } from 'react'
-import { useStore, useTracksSelector, usePlaylistsSelector, useFavoritesSelector } from '../store/useStore'
-import { useShallow } from 'zustand/react/shallow'
+import { useStore } from '../store/useStore'
 import TrackCard from '../components/TrackCard'
 import PlaylistCard from '../components/PlaylistCard'
 import { Clock, Heart, Music } from 'lucide-react'
 import './HomePage.css'
 
-// Empty array constant to prevent new array creation on each render
-const EMPTY_ARRAY: string[] = []
-
 export default function HomePage() {
-  // Use optimized selectors for better performance
-  const tracks = useTracksSelector()
-  const playlists = usePlaylistsSelector()
-  const favorites = useFavoritesSelector()
+  const { getTracks, getPlaylists, getRecentlyPlayed, getFavorites } = useStore()
 
-  // Get recently played with shallow comparison
-  const recentlyPlayed = useStore(
-    useShallow((state) => {
-      const profileId = state.currentProfileId
-      if (!profileId) return EMPTY_ARRAY
-      return state.recentlyPlayed[profileId] || EMPTY_ARRAY
-    })
-  )
+  const tracks = getTracks()
+  const playlists = getPlaylists()
+  const recentlyPlayed = getRecentlyPlayed()
+  const favorites = getFavorites()
 
-  // Memoize computed tracks to prevent recalculation on every render
-  const recentTracks = useMemo(() =>
-    recentlyPlayed
-      .slice(0, 8)
-      .map((id) => tracks.find((t) => t.id === id))
-      .filter(Boolean),
-    [recentlyPlayed, tracks]
-  )
+  const recentTracks = recentlyPlayed
+    .slice(0, 8)
+    .map((id) => tracks.find((t) => t.id === id))
+    .filter(Boolean)
 
-  const favoriteTracks = useMemo(() =>
-    favorites
-      .slice(0, 8)
-      .map((id) => tracks.find((t) => t.id === id))
-      .filter(Boolean),
-    [favorites, tracks]
-  )
+  const favoriteTracks = favorites
+    .slice(0, 8)
+    .map((id) => tracks.find((t) => t.id === id))
+    .filter(Boolean)
 
   const greeting = () => {
     const hour = new Date().getHours()

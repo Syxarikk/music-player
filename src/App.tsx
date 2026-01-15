@@ -32,12 +32,10 @@ function PageLoader() {
 }
 
 function App() {
-  // Use selector to only re-render when profiles exist status changes
-  // Note: useShallow not needed for primitive values (boolean)
-  const hasProfiles = useStore((state) => state.profiles.length > 0)
+  const { profiles } = useStore()
 
   // Show profile creation screen if no profiles exist
-  if (!hasProfiles) {
+  if (profiles.length === 0) {
     return (
       <div className={`app ${isElectron ? 'electron' : 'web'}`}>
         {isElectron && <TitleBar />}
