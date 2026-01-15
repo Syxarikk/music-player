@@ -14,20 +14,23 @@ import {
   Music,
   ListMusic,
 } from 'lucide-react'
-import { useStore, usePlaylistsSelector, useTracksSelector, useFavoritesSelector } from '../store/useStore'
+import { useStore } from '../store/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import { sanitizeImageUrl } from '../utils/sanitize'
 import ProfileSelector from './ProfileSelector'
 import './Sidebar.css'
 
 function Sidebar() {
-  const createPlaylist = useStore((state) => state.createPlaylist)
+  const { createPlaylist } = useStore()
 
-  // Use optimized selectors for Zustand v5 compatibility
-  const playlists = usePlaylistsSelector()
-  const tracks = useTracksSelector()
-  const favorites = useFavoritesSelector()
-  const tracksCount = tracks.length
-  const favoritesCount = favorites.length
+  // Use shallow comparison to prevent unnecessary re-renders
+  const { playlists, tracksCount, favoritesCount } = useStore(
+    useShallow((state) => ({
+      playlists: state.currentProfileId ? (state.playlists[state.currentProfileId] || []) : [],
+      tracksCount: state.currentProfileId ? (state.tracks[state.currentProfileId]?.length || 0) : 0,
+      favoritesCount: state.currentProfileId ? (state.favorites[state.currentProfileId]?.length || 0) : 0,
+    }))
+  )
 
   const handleCreatePlaylist = useCallback(() => {
     const name = `Плейлист ${playlists.length + 1}`
