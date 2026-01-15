@@ -6,7 +6,6 @@ import { lazy, Suspense } from 'react'
 import { HashRouter, BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { isElectron } from './services/apiClient'
 import { useStore } from './store/useStore'
-import { useShallow } from 'zustand/react/shallow'
 import TitleBar from './components/TitleBar'
 import Sidebar from './components/Sidebar'
 import Player from './components/Player'
@@ -33,10 +32,9 @@ function PageLoader() {
 }
 
 function App() {
-  // Use selector to only re-render when profiles array length changes
-  const hasProfiles = useStore(
-    useShallow((state) => state.profiles.length > 0)
-  )
+  // Use selector to only re-render when profiles exist status changes
+  // Note: useShallow not needed for primitive values (boolean)
+  const hasProfiles = useStore((state) => state.profiles.length > 0)
 
   // Show profile creation screen if no profiles exist
   if (!hasProfiles) {
