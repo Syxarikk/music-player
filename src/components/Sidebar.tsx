@@ -21,11 +21,10 @@ import ProfileSelector from './ProfileSelector'
 import './Sidebar.css'
 
 function Sidebar() {
-  const { createPlaylist } = useStore()
-
   // Use shallow comparison to prevent unnecessary re-renders
-  const { playlists, tracksCount, favoritesCount } = useStore(
+  const { createPlaylist, playlists, tracksCount, favoritesCount } = useStore(
     useShallow((state) => ({
+      createPlaylist: state.createPlaylist,
       playlists: state.currentProfileId ? (state.playlists[state.currentProfileId] || []) : [],
       tracksCount: state.currentProfileId ? (state.tracks[state.currentProfileId]?.length || 0) : 0,
       favoritesCount: state.currentProfileId ? (state.favorites[state.currentProfileId]?.length || 0) : 0,
