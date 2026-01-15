@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useCallback, useDeferredValue } from 'react'
 import { Search, X, Play, Plus, Loader2, Youtube, Music, AlertCircle } from 'lucide-react'
-import { useStore } from '../store/useStore'
+import { useStore, useTracksSelector } from '../store/useStore'
 import TrackList from '../components/TrackList'
 import AddTrackMenu from '../components/AddTrackMenu'
 import { formatCount, PLURAL_FORMS } from '../utils/pluralize'
@@ -20,9 +20,10 @@ type SearchTab = 'local' | 'youtube'
 export default function SearchPage() {
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState<SearchTab>('youtube')
-  const { getTracks, playTrack, player } = useStore()
+  const { playTrack, player } = useStore()
 
-  const tracks = getTracks()
+  // Use optimized selector to prevent unnecessary re-renders
+  const tracks = useTracksSelector()
 
   // Track menu state
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)

@@ -170,8 +170,95 @@ export async function isSymlink(filePath: string): Promise<boolean> {
 }
 
 /**
+ * File access validation result with optional file handle
+ * SECURITY: When fileHandle is returned, use it directly to avoid TOCTOU
+ */
+export interface FileAccessResult {
+  valid: boolean
+  error?: string
+  fileHandle?: import('fs/promises').FileHandle
+  stats?: import('fs').Stats
+}
+
+/**
+ * Safely open a file with TOCTOU protection
+ * Opens file and validates in a single atomic operation to prevent race conditions
+ *
+ * SECURITY: This function opens the file and returns the handle. The caller MUST:
+ * 1. Use the returned fileHandle for all operations (don't reopen the file)
+ * 2. Close the fileHandle when done
+ *
+ * @returns FileAccessResult with fileHandle if successful (caller must close it)
+ */
+export async function safeOpenFile(filePath: string): Promise<FileAccessResult> {
+  const fs = await import('fs/promises')
+  const constants = await import('fs').then(m => m.constants)
+
+  // Basic path safety checks first (no file I/O needed)
+  if (!isPathSafe(filePath)) {
+    return { valid: false, error: 'Invalid path format' }
+  }
+
+  // Check if path is within allowed directories (no file I/O needed)
+  if (!isPathAllowed(filePath)) {
+    return { valid: false, error: 'Access denied to this directory' }
+  }
+
+  let fileHandle: import('fs/promises').FileHandle | null = null
+
+  try {
+    // Open file with O_NOFOLLOW to prevent symlink following (TOCTOU protection)
+    // On Windows, O_NOFOLLOW doesn't exist, so we fall back to checking after open
+    const openFlags = constants.O_RDONLY | (constants.O_NOFOLLOW || 0)
+
+    fileHandle = await fs.open(filePath, openFlags)
+
+    // Get stats from the file handle (fstat - atomic, no TOCTOU)
+    const stats = await fileHandle.stat()
+
+    // Check if it's a symlink (additional check for Windows where O_NOFOLLOW may not work)
+    // Use lstat on the path to detect symlinks
+    const lstats = await fs.lstat(filePath)
+    if (lstats.isSymbolicLink()) {
+      await fileHandle.close()
+      return { valid: false, error: 'Symlinks not allowed' }
+    }
+
+    // Verify it's a regular file
+    if (!stats.isFile()) {
+      await fileHandle.close()
+      return { valid: false, error: 'Not a regular file' }
+    }
+
+    // Success - return the handle (caller must close it!)
+    return { valid: true, fileHandle, stats }
+  } catch (err) {
+    // Clean up handle if opened
+    if (fileHandle) {
+      await fileHandle.close().catch(() => {})
+    }
+
+    // Handle specific errors
+    const error = err as NodeJS.ErrnoException
+    if (error.code === 'ELOOP') {
+      return { valid: false, error: 'Symlinks not allowed' }
+    }
+    if (error.code === 'ENOENT') {
+      return { valid: false, error: 'File not found' }
+    }
+    if (error.code === 'EACCES' || error.code === 'EPERM') {
+      return { valid: false, error: 'Permission denied' }
+    }
+
+    return { valid: false, error: `File access error: ${error.code || 'unknown'}` }
+  }
+}
+
+/**
  * Validate path is safe and not a symlink (comprehensive check)
  * Use this for file access validation in main process
+ *
+ * @deprecated Use safeOpenFile() instead to prevent TOCTOU vulnerabilities
  */
 export async function validateFileAccess(filePath: string): Promise<{ valid: boolean; error?: string }> {
   // Basic path safety checks

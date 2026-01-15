@@ -17,7 +17,7 @@ import {
   Youtube,
 } from 'lucide-react'
 import { Howl } from 'howler'
-import { useStore } from '../store/useStore'
+import { useStore, useTracksSelector } from '../store/useStore'
 import type { Track } from '../types'
 import { formatTime, UPDATE_INTERVAL_MS, MIN_CROSSFADE_TIME } from '../utils/audio'
 import {
@@ -88,7 +88,6 @@ export default function Player() {
   const {
     player,
     audioSettings,
-    getTracks,
     pauseTrack,
     resumeTrack,
     nextTrack,
@@ -104,7 +103,8 @@ export default function Player() {
     addTracks,
   } = useStore()
 
-  const tracks = getTracks()
+  // Use optimized selector to prevent unnecessary re-renders
+  const tracks = useTracksSelector()
 
   const {
     currentTrack,

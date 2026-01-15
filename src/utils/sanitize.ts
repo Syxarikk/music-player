@@ -56,15 +56,22 @@ export function sanitizeImageUrl(url: string | null | undefined): string | null 
   // Allow data URLs for base64 images (from metadata)
   // Strict check: must be data:image/ prefix
   if (trimmed.startsWith('data:image/')) {
-    // Additional validation: check for reasonable data URL format
-    // data:image/png;base64, or data:image/jpeg;base64,
-    if (/^data:image\/[a-z]+;base64,/i.test(trimmed)) {
+    // SECURITY: Block SVG - it can contain JavaScript via <script>, onload, etc.
+    // SVG is an XML format that supports embedded scripts, making it an XSS vector
+    const lowerUrl = trimmed.toLowerCase()
+    if (lowerUrl.includes('svg')) {
+      console.warn('Blocked SVG data URL (potential XSS vector)')
+      return null
+    }
+
+    // Only allow safe raster image formats with base64 encoding
+    // Safe formats: png, jpeg, jpg, gif, webp, bmp, ico
+    if (/^data:image\/(png|jpe?g|gif|webp|bmp|x-icon|ico);base64,/i.test(trimmed)) {
       return trimmed
     }
-    // Allow data:image without base64 (e.g., data:image/svg+xml)
-    if (/^data:image\/[a-z+]+,/i.test(trimmed)) {
-      return trimmed
-    }
+
+    // Block all other data:image formats (including non-base64 and SVG)
+    console.warn('Blocked non-standard data:image URL format')
     return null
   }
 
