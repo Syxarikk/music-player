@@ -111,10 +111,11 @@ function dnsRebindingProtection(req: Request, res: Response, next: NextFunction)
 // ================= SECURITY: Authentication =================
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  // Health endpoint is always public
-  if (req.path === '/api/health') return next()
+  // Public endpoints (protected by rate limiting)
+  const publicPaths = ['/api/health', '/api/youtube/search']
+  if (publicPaths.includes(req.path)) return next()
 
-  // If AUTH_TOKEN is configured, require it
+  // If AUTH_TOKEN is configured, require it for other endpoints
   if (AUTH_TOKEN) {
     if (req.headers['x-auth-token'] !== AUTH_TOKEN) {
       return res.status(401).json({ error: 'Unauthorized' })

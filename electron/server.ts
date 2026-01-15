@@ -198,8 +198,11 @@ export function createMediaServer(config: ServerConfig) {
 
   if (config.authToken) {
     app.use('/api', (req, res, next) => {
-      // Only health endpoint is public
-      if (req.path === '/health') return next()
+      // Public endpoints (protected by rate limiting)
+      const publicPaths = ['/health', '/youtube/search']
+      if (publicPaths.includes(req.path)) return next()
+
+      // All other endpoints require auth token
       if (req.headers['x-auth-token'] !== config.authToken) {
         return res.status(401).json({ error: 'Unauthorized' })
       }
