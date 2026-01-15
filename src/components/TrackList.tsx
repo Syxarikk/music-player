@@ -3,9 +3,10 @@
  * Displays a list of tracks with play/favorite controls and context menu
  */
 
-import { useState } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { Play, Pause, Heart, MoreHorizontal, Clock, Music } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { useShallow } from 'zustand/react/shallow'
 import type { Track } from '../types'
 import { formatTime } from '../utils/audio'
 import { sanitizeImageUrl } from '../utils/sanitize'
@@ -22,41 +23,53 @@ interface ContextMenuState {
   position: { x: number; y: number }
 }
 
-export default function TrackList({ tracks, showIndex = true }: TrackListProps) {
-  const { player, playTrack, pauseTrack, resumeTrack, toggleFavorite, isFavorite } = useStore()
+function TrackList({ tracks, showIndex = true }: TrackListProps) {
+  // Use optimized selectors to minimize re-renders
+  const { currentTrackId, isPlaying, playTrack, pauseTrack, resumeTrack, toggleFavorite, isFavorite } = useStore(
+    useShallow((state) => ({
+      currentTrackId: state.player.currentTrack?.id,
+      isPlaying: state.player.isPlaying,
+      playTrack: state.playTrack,
+      pauseTrack: state.pauseTrack,
+      resumeTrack: state.resumeTrack,
+      toggleFavorite: state.toggleFavorite,
+      isFavorite: state.isFavorite,
+    }))
+  )
+
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     track: null,
     position: { x: 0, y: 0 },
   })
 
-  const handleTrackClick = (track: Track) => {
-    if (player.currentTrack?.id === track.id) {
-      player.isPlaying ? pauseTrack() : resumeTrack()
+  const handleTrackClick = useCallback((track: Track) => {
+    if (currentTrackId === track.id) {
+      isPlaying ? pauseTrack() : resumeTrack()
     } else {
       playTrack(track, tracks)
     }
-  }
+  }, [currentTrackId, isPlaying, pauseTrack, resumeTrack, playTrack, tracks])
 
-  const handleContextMenu = (e: React.MouseEvent, track: Track) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent, track: Track) => {
     e.preventDefault()
     setContextMenu({
       track,
       position: { x: e.clientX, y: e.clientY },
     })
-  }
+  }, [])
 
-  const handleMoreClick = (e: React.MouseEvent, track: Track) => {
+  const handleMoreClick = useCallback((e: React.MouseEvent, track: Track) => {
     e.stopPropagation()
     const rect = e.currentTarget.getBoundingClientRect()
     setContextMenu({
       track,
       position: { x: rect.right - 220, y: rect.bottom + 5 },
     })
-  }
+  }, [])
 
-  const closeContextMenu = () => {
+  const closeContextMenu = useCallback(() => {
     setContextMenu({ track: null, position: { x: 0, y: 0 } })
-  }
+  }, [])
 
   return (
     <div className="track-list">
@@ -72,8 +85,8 @@ export default function TrackList({ tracks, showIndex = true }: TrackListProps) 
 
       <div className="track-list-body">
         {tracks.map((track, index) => {
-          const isCurrentTrack = player.currentTrack?.id === track.id
-          const isPlaying = isCurrentTrack && player.isPlaying
+          const isCurrentTrack = currentTrackId === track.id
+          const isTrackPlaying = isCurrentTrack && isPlaying
           const isFav = isFavorite(track.id)
           const safeCoverArt = sanitizeImageUrl(track.coverArt)
 
@@ -91,7 +104,7 @@ export default function TrackList({ tracks, showIndex = true }: TrackListProps) 
                     className="track-play-btn"
                     onClick={() => handleTrackClick(track)}
                   >
-                    {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                    {isTrackPlaying ? <Pause size={14} /> : <Play size={14} />}
                   </button>
                 </div>
               )}
@@ -148,3 +161,6 @@ export default function TrackList({ tracks, showIndex = true }: TrackListProps) 
     </div>
   )
 }
+
+// Memoize to prevent unnecessary re-renders when parent re-renders
+export default memo(TrackList)

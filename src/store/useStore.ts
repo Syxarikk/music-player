@@ -3,8 +3,8 @@
  */
 
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { shallow } from 'zustand/shallow'
+import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
+import { useShallow } from 'zustand/react/shallow'
 import type { Track, Playlist, RepeatMode, AudioSettings, Profile } from '../types'
 import { generateId } from '../utils/id'
 import { sanitizeImageUrl } from '../utils/sanitize'
@@ -68,8 +68,9 @@ function sanitizePlaylistsStorage(
 
 /**
  * Safe localStorage wrapper with size checking
+ * Implements StateStorage interface for Zustand v5 compatibility
  */
-const safeStorage = {
+const safeStorage: StateStorage = {
   getItem: (name: string): string | null => {
     try {
       return localStorage.getItem(name)
@@ -426,6 +427,14 @@ export const useStore = create<AppState>()(
           return { id: '', name: '', tracks: [], createdAt: 0 }
         }
 
+        // Check limit BEFORE creating playlist to avoid returning invalid data
+        const currentPlaylists = get().playlists[profileId] || []
+        if (currentPlaylists.length >= MAX_PLAYLISTS_PER_PROFILE) {
+          console.warn('Maximum playlists limit reached for profile:', profileId)
+          // Return invalid playlist to signal failure (consistent with no-profile case)
+          return { id: '', name: '', tracks: [], createdAt: 0 }
+        }
+
         const playlist: Playlist = {
           id: generateId(),
           name,
@@ -434,20 +443,12 @@ export const useStore = create<AppState>()(
           createdAt: Date.now(),
         }
 
-        set((state) => {
-          const profilePlaylists = state.playlists[profileId] || []
-          // Check if we've reached the limit
-          if (profilePlaylists.length >= MAX_PLAYLISTS_PER_PROFILE) {
-            console.warn('Maximum playlists limit reached for profile:', profileId)
-            return state
-          }
-          return {
-            playlists: {
-              ...state.playlists,
-              [profileId]: [...profilePlaylists, playlist],
-            },
-          }
-        })
+        set((state) => ({
+          playlists: {
+            ...state.playlists,
+            [profileId]: [...(state.playlists[profileId] || []), playlist],
+          },
+        }))
 
         return playlist
       },
@@ -780,11 +781,7 @@ export const useStore = create<AppState>()(
     {
       name: 'music-player-storage',
       version: 1, // Add version for future migrations
-      storage: {
-        getItem: safeStorage.getItem,
-        setItem: safeStorage.setItem,
-        removeItem: safeStorage.removeItem,
-      },
+      storage: createJSONStorage(() => safeStorage),
       partialize: (state) => ({
         profiles: state.profiles,
         currentProfileId: state.currentProfileId,
@@ -885,12 +882,11 @@ const EMPTY_FAVORITES: string[] = []
  */
 export function useTracksSelector(): Track[] {
   return useStore(
-    (state) => {
+    useShallow((state) => {
       const profileId = state.currentProfileId
       if (!profileId) return EMPTY_TRACKS
       return state.tracks[profileId] || EMPTY_TRACKS
-    },
-    shallow
+    })
   )
 }
 
@@ -900,8 +896,7 @@ export function useTracksSelector(): Track[] {
  */
 export function usePlayerSelector() {
   return useStore(
-    (state) => state.player,
-    shallow
+    useShallow((state) => state.player)
   )
 }
 
@@ -910,12 +905,11 @@ export function usePlayerSelector() {
  */
 export function usePlaylistsSelector(): Playlist[] {
   return useStore(
-    (state) => {
+    useShallow((state) => {
       const profileId = state.currentProfileId
       if (!profileId) return EMPTY_PLAYLISTS
       return state.playlists[profileId] || EMPTY_PLAYLISTS
-    },
-    shallow
+    })
   )
 }
 
@@ -924,11 +918,10 @@ export function usePlaylistsSelector(): Playlist[] {
  */
 export function useFavoritesSelector(): string[] {
   return useStore(
-    (state) => {
+    useShallow((state) => {
       const profileId = state.currentProfileId
       if (!profileId) return EMPTY_FAVORITES
       return state.favorites[profileId] || EMPTY_FAVORITES
-    },
-    shallow
+    })
   )
 }

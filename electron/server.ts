@@ -176,13 +176,20 @@ export function createMediaServer(config: ServerConfig) {
   }, RATE_LIMIT_WINDOW_MS)
 
   // CORS configuration - restrict to local network and localhost
-  // SECURITY: Reject null origin to prevent CSRF from local HTML files
+  // SECURITY: Distinguishes between missing origin (same-origin, safe) and null origin (file://, risky)
   app.use(cors({
     origin: (origin, callback) => {
-      // SECURITY: Reject requests without origin (prevents CSRF from file:// pages)
-      if (!origin) {
-        console.warn('CORS: Rejected request with null origin')
-        return callback(new Error('Origin header required'), false)
+      // No origin header = same-origin request from browser (safe)
+      // This happens when the request is made from the same origin as the server
+      if (origin === undefined) {
+        return callback(null, true)
+      }
+
+      // Explicit 'null' string origin = file:// page (potential CSRF risk)
+      // Reject these for security
+      if (origin === 'null') {
+        console.warn('CORS: Rejected null origin (file:// page)')
+        return callback(new Error('Null origin not allowed'), false)
       }
 
       // Allow localhost
@@ -209,7 +216,7 @@ export function createMediaServer(config: ServerConfig) {
 
   // CORS error handler - must be after cors() middleware
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-    if (err.message === 'Not allowed by CORS' || err.message === 'Origin header required') {
+    if (err.message === 'Not allowed by CORS' || err.message === 'Null origin not allowed') {
       console.warn('CORS error for:', req.ip, '-', err.message)
       return res.status(403).json({ error: err.message })
     }

@@ -487,21 +487,20 @@ export default function Player() {
                   return
                 }
 
-                nextSoundRef.current = new Howl({
+                const newNextSound = new Howl({
                   src: [nextUrl],
                   html5: true,
                   volume: 0,
                   onload: () => {
                     // Safety: verify component is still mounted and crossfade is still active
                     if (!isMountedRef.current) {
-                      nextSoundRef.current?.unload()
-                      nextSoundRef.current = null
+                      newNextSound.unload()
                       isCrossfading.current = false
                       return
                     }
 
-                    if (nextSoundRef.current && isCrossfading.current) {
-                      nextSoundRef.current.play()
+                    if (isCrossfading.current) {
+                      newNextSound.play()
                       nextTrack()
 
                       const fadeSteps = 20
@@ -509,7 +508,7 @@ export default function Player() {
                       let step = 0
 
                       const fadingOutSound = soundRef.current
-                      const fadingInSound = nextSoundRef.current
+                      const fadingInSound = newNextSound
 
                       // Clear any previous fade timer before starting new one
                       if (activeFadeTimerRef.current) {
@@ -523,6 +522,9 @@ export default function Player() {
                             clearInterval(activeFadeTimerRef.current)
                             activeFadeTimerRef.current = null
                           }
+                          // Cleanup sounds on unmount during fade
+                          fadingInSound?.unload()
+                          fadingOutSound?.unload()
                           return
                         }
 
@@ -544,12 +546,22 @@ export default function Player() {
                           fadingOutSound?.unload()
                         }
                       }, fadeInterval)
+                    } else {
+                      // Crossfade was cancelled, cleanup
+                      newNextSound.unload()
                     }
                   },
                   onloaderror: () => {
                     isCrossfading.current = false
+                    newNextSound.unload()
                   },
                 })
+                // Only assign to ref if still mounted
+                if (isMountedRef.current) {
+                  nextSoundRef.current = newNextSound
+                } else {
+                  newNextSound.unload()
+                }
               } catch {
                 isCrossfading.current = false
               }
