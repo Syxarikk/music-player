@@ -1,26 +1,47 @@
 <!DOCTYPE html>
 <html lang="ru">
   <head>
+    <!-- Base -->
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' file: local-audio: ws://localhost:* wss://localhost:* http://localhost:* http://127.0.0.1:* http://* https://*.googlevideo.com https://*; media-src 'self' file: local-audio: blob: data: https://*.googlevideo.com https://*; img-src 'self' data: file: blob: https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark light" />
 
-    <!-- PWA Meta Tags -->
+    <!-- App -->
+    <title>Family Player</title>
+    <meta name="description" content="Family Player — музыкальный плеер" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+
+    <!--
+      ⚠️ ВАЖНО
+      Content-Security-Policy УБРАН СПЕЦИАЛЬНО
+      В Electron CSP должна задаваться ТОЛЬКО через main.ts
+    -->
+
+    <!--
+      PWA
+      ⚠️ Если это Electron — manifest можно оставить,
+      но он НЕ должен ссылаться на http://localhost
+    -->
+    <link rel="manifest" href="./manifest.json" />
+
+    <!-- Theme -->
     <meta name="theme-color" content="#8b5cf6" />
-    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Family Player" />
-    <link rel="manifest" href="/manifest.json" />
-
-    <!-- iOS Icons -->
-    <link rel="apple-touch-icon" href="/icon-192.png" />
-
-    <title>Family Player</title>
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
   </head>
+
   <body>
+    <noscript>Для работы приложения требуется JavaScript.</noscript>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Vite entry -->
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

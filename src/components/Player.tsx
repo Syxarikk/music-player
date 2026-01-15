@@ -59,8 +59,14 @@ async function getAudioUrl(
     }
 
     // Server mode: use remote server for YouTube downloads
-    if (audioSettings.youtubeServerUrl) {
+    if (audioSettings.youtubeServerUrl && audioSettings.youtubeServerUrl.startsWith('http')) {
       return `${audioSettings.youtubeServerUrl}/api/youtube/audio/${videoId}`
+    }
+
+    // Electron without server URL configured: use Piped API directly
+    if (isElectron) {
+      console.log('Using Piped API for YouTube audio (no server configured)')
+      return await getPipedAudioUrl(videoId)
     }
 
     // Mobile standalone: use Piped API
@@ -68,8 +74,8 @@ async function getAudioUrl(
       return await getPipedAudioUrl(videoId)
     }
 
-    // Web fallback
-    return api.getAudioUrl(track)
+    // Web fallback: also use Piped API
+    return await getPipedAudioUrl(videoId)
   }
 
   // Local files

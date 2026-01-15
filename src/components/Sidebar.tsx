@@ -15,20 +15,31 @@ import {
   ListMusic,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { useShallow } from 'zustand/react/shallow'
 import { sanitizeImageUrl } from '../utils/sanitize'
+import type { Playlist } from '../types'
 import ProfileSelector from './ProfileSelector'
 import './Sidebar.css'
 
+// Stable empty array reference to prevent infinite re-renders
+const EMPTY_PLAYLISTS: Playlist[] = []
+
 function Sidebar() {
-  // Use shallow comparison to prevent unnecessary re-renders
-  const { createPlaylist, playlists, tracksCount, favoritesCount } = useStore(
-    useShallow((state) => ({
-      createPlaylist: state.createPlaylist,
-      playlists: state.currentProfileId ? (state.playlists[state.currentProfileId] || []) : [],
-      tracksCount: state.currentProfileId ? (state.tracks[state.currentProfileId]?.length || 0) : 0,
-      favoritesCount: state.currentProfileId ? (state.favorites[state.currentProfileId]?.length || 0) : 0,
-    }))
+  // Use individual selectors to avoid creating new object references
+  const createPlaylist = useStore((state) => state.createPlaylist)
+  const playlists = useStore((state) =>
+    state.currentProfileId
+      ? state.playlists[state.currentProfileId] ?? EMPTY_PLAYLISTS
+      : EMPTY_PLAYLISTS
+  )
+  const tracksCount = useStore((state) =>
+    state.currentProfileId
+      ? state.tracks[state.currentProfileId]?.length ?? 0
+      : 0
+  )
+  const favoritesCount = useStore((state) =>
+    state.currentProfileId
+      ? state.favorites[state.currentProfileId]?.length ?? 0
+      : 0
   )
 
   const handleCreatePlaylist = useCallback(() => {

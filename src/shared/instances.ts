@@ -7,20 +7,17 @@
  */
 
 // Piped API instances (updated January 2025)
+// Ordered by reliability - most reliable first
 // Can be overridden via VITE_PIPED_INSTANCES env variable (comma-separated)
 export const DEFAULT_PIPED_INSTANCES = [
-  'https://pipedapi.kavin.rocks',
-  'https://pipedapi-libre.kavin.rocks',
-  'https://pipedapi.adminforge.de',
-  'https://api.piped.yt',
+  'https://pipedapi.kavin.rocks',      // Main instance
+  'https://pipedapi.adminforge.de',    // Germany, reliable
+  'https://pipedapi.in.projectsegfau.lt', // India
+  'https://api.piped.yt',              // Fast
   'https://pipedapi.leptons.xyz',
-  'https://piped-api.privacy.com.de',
-  'https://pipedapi.drgns.space',
-  'https://pipedapi.nosebs.ru',
-  'https://pipedapi.wireway.ch',
+  'https://pipedapi.wireway.ch',       // Switzerland
   'https://pipedapi.darkness.services',
   'https://piped-api.hostux.net',
-  'https://api.piped.private.coffee',
 ]
 
 // Invidious API instances as fallback (updated January 2025)

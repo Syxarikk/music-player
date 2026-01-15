@@ -58,8 +58,8 @@ function getYouTubeServerUrl(): string {
 }
 
 /**
- * Search videos on YouTube via server proxy
- * This protects the API key by keeping it server-side only
+ * Search videos on YouTube via server proxy or Piped API
+ * Automatically chooses the best method based on environment
  */
 export async function searchYouTube(
   query: string,
@@ -67,50 +67,62 @@ export async function searchYouTube(
 ): Promise<Track[]> {
   const serverUrl = getYouTubeServerUrl()
 
-  try {
-    const searchUrl = new URL(`${serverUrl}/api/youtube/search`)
-    searchUrl.searchParams.set('q', query)
-    searchUrl.searchParams.set('maxResults', maxResults.toString())
+  // If we have a valid server URL, try it first (with short timeout)
+  if (serverUrl && serverUrl.startsWith('http')) {
+    try {
+      const searchUrl = new URL(`${serverUrl}/api/youtube/search`)
+      searchUrl.searchParams.set('q', query)
+      searchUrl.searchParams.set('maxResults', maxResults.toString())
 
-    const response = await fetch(searchUrl.toString(), {
-      signal: AbortSignal.timeout(15000),
-    })
+      const response = await fetch(searchUrl.toString(), {
+        signal: AbortSignal.timeout(5000), // Reduced timeout - fail fast
+      })
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Search failed' }))
-      console.error('YouTube search error:', error)
-      throw new Error(error.error || 'YouTube search failed')
+      if (response.ok) {
+        const tracks: Track[] = await response.json()
+        return tracks
+      }
+    } catch (error) {
+      console.warn('Server search failed, using Piped API:', error)
     }
-
-    const tracks: Track[] = await response.json()
-    return tracks
-  } catch (error) {
-    console.error('YouTube search error:', error)
-
-    // Fallback: try Piped API for search if server is unavailable
-    console.log('Trying Piped API fallback for search...')
-    return searchYouTubeViaPiped(query, maxResults)
   }
+
+  // Use Piped API directly (faster for Electron/standalone)
+  return searchYouTubeViaPiped(query, maxResults)
 }
 
 /**
- * Fallback search via Piped API (no API key needed)
+ * Search via Piped API (parallel requests for speed)
  */
 async function searchYouTubeViaPiped(
   query: string,
   maxResults = 20
 ): Promise<Track[]> {
-  for (const instance of PIPED_INSTANCES) {
+  const SEARCH_TIMEOUT = 8000
+
+  // Create parallel requests to all instances
+  const requests = PIPED_INSTANCES.map(async (instance): Promise<Track[]> => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), SEARCH_TIMEOUT)
+
     try {
       const url = `${instance}/search?q=${encodeURIComponent(query)}&filter=music_songs`
       const response = await fetch(url, {
-        signal: AbortSignal.timeout(10000),
+        signal: controller.signal,
       })
 
-      if (!response.ok) continue
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
 
       const data = await response.json()
       const items = data.items || []
+
+      if (items.length === 0) {
+        throw new Error('No results')
+      }
+
+      console.log(`Piped search success from ${instance}`)
 
       return items.slice(0, maxResults).map((item: any) => ({
         id: `youtube-${item.url?.replace('/watch?v=', '') || item.videoId}`,
@@ -124,12 +136,19 @@ async function searchYouTubeViaPiped(
         youtubeId: item.url?.replace('/watch?v=', '') || item.videoId,
       }))
     } catch (error) {
-      console.warn(`Piped search failed for ${instance}:`, error)
-      continue
+      throw error
+    } finally {
+      clearTimeout(timeoutId)
     }
-  }
+  })
 
-  throw new Error('All search methods failed')
+  try {
+    // Return first successful result
+    return await Promise.any(requests)
+  } catch (error) {
+    console.error('All Piped instances failed for search')
+    throw new Error('YouTube search failed - all instances unavailable')
+  }
 }
 
 /**
@@ -155,7 +174,7 @@ interface InvidiousVideo {
  * Each request has its own timeout to prevent premature cancellation
  */
 async function getAudioUrlFromPiped(videoId: string): Promise<string | null> {
-  const INDIVIDUAL_TIMEOUT = 10000 // 10 seconds per instance
+  const INDIVIDUAL_TIMEOUT = 8000 // 8 seconds per instance (reduced for faster response)
   const errors: { instance: string; error: string }[] = []
 
   try {
@@ -224,7 +243,7 @@ async function getAudioUrlFromPiped(videoId: string): Promise<string | null> {
  * Each request has its own timeout to prevent premature cancellation
  */
 async function getAudioUrlFromInvidious(videoId: string): Promise<string | null> {
-  const INDIVIDUAL_TIMEOUT = 10000 // 10 seconds per instance
+  const INDIVIDUAL_TIMEOUT = 8000 // 8 seconds per instance (reduced for faster response)
   const errors: { instance: string; error: string }[] = []
 
   try {
